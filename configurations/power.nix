@@ -10,7 +10,7 @@
 
   # X11: turn off the display after 10 minutes and disable screensaver/DPMS
   # For Wayland/Plasma sessions, KWin/PowerDevil manages display power. The suspend above still applies.
-  services.displayManager.sessionCommands = ''
+  services.xserver.displayManager.sessionCommands = ''
     if command -v xset >/dev/null 2>&1; then
       # disable the X screensaver and set DPMS: standby/suspend/off = 0/0/600 seconds
       xset s off -dpms

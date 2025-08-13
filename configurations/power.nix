@@ -1,10 +1,10 @@
 { config, pkgs, lib, ... }:
 
 {
-  # System-wide idle suspend after 20 minutes
+  # System-wide idle suspend after 20 minutes (systemd-logind)
   services.logind = {
-    enable = true;
     extraConfig = ''
+      [Login]
       # Suspend the system after 20 minutes of user idleness
       IdleAction=suspend
       IdleActionSec=20min
@@ -13,7 +13,7 @@
 
   # X11: turn off the display after 10 minutes and disable screensaver/DPMS
   # For Wayland/Plasma sessions, KWin/PowerDevil manages display power. The suspend above still applies.
-  services.xserver.displayManager.sessionCommands = ''
+  services.displayManager.sessionCommands = ''
     if command -v xset >/dev/null 2>&1; then
       # disable the X screensaver and set DPMS: standby/suspend/off = 0/0/600 seconds
       xset s off -dpms

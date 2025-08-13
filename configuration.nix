@@ -11,6 +11,7 @@
   ./configurations/programs.nix
   ./configurations/nixpkgs.nix
   ./configurations/power.nix
+  ./configurations/lockdown.nix
   ];
 
   # This value determines the NixOS release from which the default

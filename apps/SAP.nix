@@ -1,0 +1,38 @@
+{ pkgs, lib, config, ... }:
+
+let
+  sapUrl = "https://sapapp-p1.postur.is/sap/bc/gui/sap/its/webgui";
+  chromium = pkgs.chromium;
+  launcher = pkgs.writeShellScriptBin "sap-kiosk" ''
+    exec ${chromium}/bin/chromium \
+      --app=${sapUrl} \
+      --kiosk \
+      --no-first-run \
+      --disable-translate \
+      --disable-infobars \
+      --noerrdialogs \
+      --disable-features=Translate,PasswordManagerOnboarding,AutofillServerCommunication \
+      --password-store=basic \
+      --simulate-outdated-no-au='Tue, 31 Dec 2099 23:59:59 GMT' \
+      --window-position=0,0 \
+      --start-maximized \
+      "$@"
+  '';
+
+  desktopFile = pkgs.writeTextFile {
+    name = "sap-kiosk.desktop";
+    destination = "/share/applications/sap-kiosk.desktop";
+    text = ''
+      [Desktop Entry]
+      Type=Application
+      Name=SAP Kiosk
+      Exec=${launcher}/bin/sap-kiosk
+      Terminal=false
+      Categories=Network;Office;
+      X-GNOME-Autostart-enabled=true
+    '';
+  };
+in
+{
+  environment.systemPackages = [ chromium launcher desktopFile ];
+}

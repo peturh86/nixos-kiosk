@@ -6,7 +6,6 @@ let
   launcher = pkgs.writeShellScriptBin "sap-kiosk" ''
     exec ${chromium}/bin/chromium \
       --app=${sapUrl} \
-      --kiosk \
       --no-first-run \
       --disable-translate \
       --disable-infobars \
@@ -15,7 +14,7 @@ let
       --password-store=basic \
       --simulate-outdated-no-au='Tue, 31 Dec 2099 23:59:59 GMT' \
       --window-position=0,0 \
-      --start-maximized \
+  --start-maximized \
       "$@"
   '';
 
@@ -39,4 +38,12 @@ let
 in
 {
   environment.systemPackages = [ chromium launcher desktopFile ];
+
+  # Place a desktop shortcut for the kiosk user
+  systemd.tmpfiles.rules = [
+    # Ensure Desktop folder exists
+    "d /home/fband/Desktop 0755 fband users - -"
+    # Symlink the desktop file for easy access
+    "L+ /home/fband/Desktop/SAP Kiosk.desktop - - - - ${desktopFile}/share/applications/sap-kiosk.desktop"
+  ];
 }

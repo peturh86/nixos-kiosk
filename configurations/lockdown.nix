@@ -20,12 +20,9 @@
     Run Command=none,none,Run Command
 
     [kwin][$i]
-    Walk Through Windows=none,none,Walk Through Windows
-    Walk Through Windows (Reverse)=none,none,Walk Through Windows (Reverse)
-    Walk Through Windows Alternative=none,none,Walk Through Windows Alternative
-    Walk Through Windows Alternative (Reverse)=none,none,Walk Through Windows Alternative (Reverse)
-    Walk Through Desktop List=none,none,Walk Through Desktop List
-    Walk Through Desktop List (Reverse)=none,none,Walk Through Desktop List (Reverse)
+  # Allow Alt+Tab window switching
+  Walk Through Windows=Alt+Tab,Alt+Tab,Walk Through Windows
+  Walk Through Windows (Reverse)=Alt+Shift+Backtab,Alt+Shift+Backtab,Walk Through Windows (Reverse)
   '';
 
   # Optional: hide the Plasma toolbox and lock panel editing by default

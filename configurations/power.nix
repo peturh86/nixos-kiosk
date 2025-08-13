@@ -2,13 +2,10 @@
 
 {
   # System-wide idle suspend after 20 minutes (systemd-logind)
-  services.logind = {
-    extraConfig = ''
-      [Login]
-      # Suspend the system after 20 minutes of user idleness
-      IdleAction=suspend
-      IdleActionSec=20min
-    '';
+  services.logind.settings = {
+    # Suspend the system after 20 minutes of user idleness
+    IdleAction = "suspend";
+    IdleActionSec = "20min";
   };
 
   # X11: turn off the display after 10 minutes and disable screensaver/DPMS

@@ -26,9 +26,13 @@ let
       [Desktop Entry]
       Type=Application
       Name=SAP Kiosk
+  Comment=SAP WebGUI
       Exec=${launcher}/bin/sap-kiosk
       Terminal=false
-      Categories=Network;Office;
+  Categories=Network;Office;Kiosk;
+  Icon=applications-internet
+  NoDisplay=false
+  StartupNotify=true
       X-GNOME-Autostart-enabled=true
     '';
   };

@@ -33,4 +33,31 @@
     [PlasmaToolTips]
     Delay=0
   '';
+
+  # Enforce kiosk settings at session start in case user config overrides exist
+  systemd.user.services.kde-kiosk-enforce = {
+    description = "Enforce KDE Kiosk settings";
+    wantedBy = [ "plasma-workspace.target" "default.target" ];
+    after = [ "plasma-workspace.target" ];
+    serviceConfig = {
+      Type = "oneshot";
+      ExecStart = pkgs.writeShellScript "enforce-kde-kiosk" ''
+        set -euo pipefail
+        cfgdir="$XDG_CONFIG_HOME"
+        [ -z "$cfgdir" ] && cfgdir="$HOME/.config"
+
+        # Disable KRunner and Alt-Tab shortcuts for the user
+        ${pkgs.kdePackages.kconfig}/bin/kwriteconfig5 --file kglobalshortcutsrc --group krunner.desktop --key "Run Command" "none,none,Run Command"
+        ${pkgs.kdePackages.kconfig}/bin/kwriteconfig5 --file kglobalshortcutsrc --group kwin --key "Walk Through Windows" "none,none,Walk Through Windows"
+        ${pkgs.kdePackages.kconfig}/bin/kwriteconfig5 --file kglobalshortcutsrc --group kwin --key "Walk Through Windows (Reverse)" "none,none,Walk Through Windows (Reverse)"
+
+        # Action restrictions
+        ${pkgs.kdePackages.kconfig}/bin/kwriteconfig5 --file kdeglobals --group "KDE Action Restrictions" --key lock_screen false
+        ${pkgs.kdePackages.kconfig}/bin/kwriteconfig5 --file kdeglobals --group "KDE Action Restrictions" --key logout false
+        ${pkgs.kdePackages.kconfig}/bin/kwriteconfig5 --file kdeglobals --group "KDE Action Restrictions" --key run_command false
+        ${pkgs.kdePackages.kconfig}/bin/kwriteconfig5 --file kdeglobals --group "KDE Action Restrictions" --key start_new_session false
+        ${pkgs.kdePackages.kconfig}/bin/kwriteconfig5 --file kdeglobals --group "KDE Action Restrictions" --key switch_user false
+      '';
+    };
+  };
 }

@@ -14,6 +14,16 @@
   #./configurations/lockdown.nix
   ./desktop/packages-openbox-lxpanel.nix
   ./desktop/session-openbox-lxpanel.nix
+      ./modules/ui/xserver-openbox.nix
+    ./modules/ui/dm-lightdm.nix
+
+    ./modules/panel/tint2-packages.nix
+    ./modules/panel/tint2-config.nix
+
+    ./modules/kiosk/autostart.nix
+    ./modules/kiosk/autostart-add-tint2.nix
+
+    ./modules/apps/desktop-entries.nix
   ];
 
   # This value determines the NixOS release from which the default

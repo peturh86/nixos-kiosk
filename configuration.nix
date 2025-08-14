@@ -4,7 +4,7 @@
   imports = [
     ./hardware-configuration.nix
     ./apps.nix
-    
+
     ./configurations/system.nix
     ./configurations/desktop.nix
     ./configurations/audio-print.nix
@@ -17,9 +17,9 @@
     ./modules/ui/dm-lightdm.nix
     ./modules/panel/tint2-packages.nix
     ./modules/panel/tint2-config.nix
+    ./modules/apps/desktop-entries.nix
     ./modules/kiosk/autostart.nix
     ./modules/kiosk/autostart-add-tint2.nix
-    ./modules/apps/desktop-entries.nix
   ];
 
   # This value determines the NixOS release from which the default

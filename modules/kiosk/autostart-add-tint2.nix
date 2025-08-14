@@ -1,6 +1,6 @@
 { lib, pkgs, ... }:
 {
   kiosk.autostart.lines = lib.mkAfter [
-    "${pkgs.tint2}/bin/tint2 &"
+    "XDG_CONFIG_DIRS=/etc/xdg ${pkgs.tint2}/bin/tint2 &"
   ];
 }

@@ -11,7 +11,9 @@
   ./configurations/programs.nix
   ./configurations/nixpkgs.nix
   ./configurations/power.nix
-  ./configurations/lockdown.nix
+  #./configurations/lockdown.nix
+  ./desktop/packages-openbox-lxpanel.nix
+  ./desktop/session-openbox-lxpanel.nix
   ];
 
   # This value determines the NixOS release from which the default

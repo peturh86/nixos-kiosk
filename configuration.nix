@@ -12,8 +12,6 @@
   ./configurations/nixpkgs.nix
   ./configurations/power.nix
   #./configurations/lockdown.nix
-  ./desktop/packages-openbox-lxpanel.nix
-  ./desktop/session-openbox-lxpanel.nix
       ./modules/ui/xserver-openbox.nix
     ./modules/ui/dm-lightdm.nix
 

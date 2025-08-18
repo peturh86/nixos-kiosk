@@ -1,8 +1,8 @@
 { pkgs, ... }:
 let
   sap = pkgs.makeDesktopItem {
-    name = "jais";
-    desktopName = "Já.is (Web)";
+    name = "web";
+    desktopName = "Web";
     exec = "firefox --new-window https://www.ja.is";
     icon = "firefox";
     categories = [ "Network" ];
@@ -17,7 +17,7 @@ let
   };
 
   intranet = pkgs.makeDesktopItem {
-    name = "SAP (Web)";
+    name = "sap";
     desktopName = "SAP (Web)";
     exec = "chromium --app=https://sapapp-p1.postur.is/sap/bc/gui/sap/its/webgui";
     icon = "chromium";
@@ -106,9 +106,9 @@ in
     launcher_icon_theme_override = 0
     startup_notifications = 1
     launcher_tooltip = 1
-    launcher_item_app = ${sap}/share/applications/sap-web.desktop
+    launcher_item_app = ${sap}/share/applications/web.desktop
     launcher_item_app = ${ips}/share/applications/ips.desktop
-    launcher_item_app = ${intranet}/share/applications/intranet.desktop
+    launcher_item_app = ${intranet}/share/applications/sap.desktop
 
     # Clock
     time1_format = %H:%M

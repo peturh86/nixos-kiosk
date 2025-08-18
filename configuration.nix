@@ -20,7 +20,8 @@
     ./modules/apps/desktop-entries.nix
     ./modules/kiosk/autostart.nix
     ./modules/kiosk/autostart-add-tint2.nix
-    ./modules/kiosk/tint2-systemd-service.nix
+    # ./modules/kiosk/tint2-systemd-service.nix  # Disable systemd approach
+    ./modules/kiosk/x-session-commands.nix      # Use session commands instead
   ];
 
   # This value determines the NixOS release from which the default

@@ -14,8 +14,13 @@ in
     text = concatStringsSep "\n" (
       [
         "#!/bin/sh"
+        "echo \"$(date): Openbox autostart executed\" >> /tmp/openbox-autostart.log"
         "${pkgs.xorg.xsetroot}/bin/xsetroot -solid '#2a2a2a'"
-      ] ++ (map (l: l) (lib.unique config.kiosk.autostart.lines))
+        "echo \"$(date): Background set\" >> /tmp/openbox-autostart.log"
+      ] ++ (map (l: l) (lib.unique config.kiosk.autostart.lines)) ++ [
+        "echo \"$(date): All autostart commands processed\" >> /tmp/openbox-autostart.log"
+      ]
     ) + "\n";
   };
 }
+prufa@prufa.is

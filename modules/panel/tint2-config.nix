@@ -11,7 +11,7 @@ let
   ips = pkgs.makeDesktopItem {
     name = "ips";
     desktopName = "IPS";
-    exec = "env WINEPREFIX=\\$HOME/.wine-ips wine C:\\\\Program\\ Files\\\\IPS\\\\ips.exe";
+    exec = "sh -c 'WINEPREFIX=$HOME/.wine-ips wine \"C:/Program Files/IPS/ips.exe\"'";
     icon = "wine";
     categories = [ "Utility" ];
   };

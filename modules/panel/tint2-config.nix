@@ -54,7 +54,7 @@ in
     taskbar_padding = 0 0 2
     taskbar_background_id = 0
     taskbar_active_background_id = 0
-    taskbar_name = 1
+    taskbar_name = 0
     taskbar_hide_inactive_tasks = 0
     taskbar_hide_different_monitor = 0
     taskbar_always_show_all_desktop_tasks = 0

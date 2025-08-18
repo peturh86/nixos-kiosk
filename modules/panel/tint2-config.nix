@@ -11,10 +11,7 @@ let
   ips = pkgs.makeDesktopItem {
     name = "ips";
     desktopName = "IPS";
-    exec = "${pkgs.writeShellScript "launch-ips" ''
-      export WINEPREFIX="$HOME/.wine-ips"
-      exec wine "C:/Program Files/IPS/ips.exe"
-    ''}";
+    exec = "ips";
     icon = "wine";
     categories = [ "Utility" ];
   };

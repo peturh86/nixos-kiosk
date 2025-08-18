@@ -4,11 +4,13 @@
     enable = true;
     windowManager.openbox.enable = true;
     desktopManager.xterm.enable = false;
+    displayManager = {
+      lightdm.enable = true;                 # pick LightDM
+      defaultSession = "none+openbox";
+    };
   };
 
   services.displayManager = {
-    lightdm.enable = true;                 # pick LightDM
-    sddm.enable   = lib.mkForce false;     # explicitly off
-    defaultSession = "none+openbox";
+    sddm.enable = lib.mkForce false;     # explicitly off
   };
 }

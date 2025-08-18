@@ -22,5 +22,4 @@ in
       ]
     ) + "\n";
   };
-}
-prufa@prufa.is
+}prufa@prufa.is

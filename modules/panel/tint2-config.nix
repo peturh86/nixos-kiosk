@@ -1,9 +1,13 @@
 { pkgs, ... }:
 let
+  # Create simple test scripts that log when clicked
   sap = pkgs.makeDesktopItem {
     name = "sap-web";
     desktopName = "SAP (Web)";
-    exec = "firefox --new-window https://sap.example.com";
+    exec = "${pkgs.writeShellScript "launch-sap" ''
+      echo "$(date): SAP launcher clicked" >> /tmp/launcher.log
+      ${pkgs.firefox}/bin/firefox --new-window https://sap.example.com
+    ''}";
     icon = "firefox";
     categories = [ "Network" ];
   };
@@ -11,7 +15,13 @@ let
   ips = pkgs.makeDesktopItem {
     name = "ips";
     desktopName = "IPS";
-    exec = "ips";
+    exec = "${pkgs.writeShellScript "launch-ips" ''
+      echo "$(date): IPS launcher clicked" >> /tmp/launcher.log
+      ${pkgs.writeShellScriptBin "ips" ''
+        echo "IPS launcher - replace with actual IPS installer setup"
+        echo "This is a placeholder for the IPS application"
+      ''}/bin/ips
+    ''}";
     icon = "wine";
     categories = [ "Utility" ];
   };
@@ -19,9 +29,24 @@ let
   intranet = pkgs.makeDesktopItem {
     name = "intranet";
     desktopName = "Intranet";
-    exec = "chromium --app=https://intranet.example.com";
+    exec = "${pkgs.writeShellScript "launch-intranet" ''
+      echo "$(date): Intranet launcher clicked" >> /tmp/launcher.log
+      ${pkgs.chromium}/bin/chromium --app=https://intranet.example.com
+    ''}";
     icon = "chromium";
     categories = [ "Network" ];
+  };
+
+  # Simple test launcher that just creates a file to verify clicks work
+  test = pkgs.makeDesktopItem {
+    name = "test";
+    desktopName = "Test";
+    exec = "${pkgs.writeShellScript "test-launcher" ''
+      echo "$(date): Test launcher clicked - this should work!" >> /tmp/launcher.log
+      ${pkgs.xterm}/bin/xterm -e "echo 'Test launcher works! Press Enter to close'; read"
+    ''}";
+    icon = "utilities-terminal";
+    categories = [ "System" ];
   };
 in
 {
@@ -106,6 +131,7 @@ in
     launcher_icon_theme_override = 0
     startup_notifications = 1
     launcher_tooltip = 1
+    launcher_item_app = ${test}/share/applications/test.desktop
     launcher_item_app = ${sap}/share/applications/sap-web.desktop
     launcher_item_app = ${ips}/share/applications/ips.desktop
     launcher_item_app = ${intranet}/share/applications/intranet.desktop

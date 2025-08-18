@@ -20,6 +20,7 @@
     ./modules/apps/desktop-entries.nix
     ./modules/kiosk/autostart.nix
     ./modules/kiosk/autostart-add-tint2.nix
+    ./modules/kiosk/tint2-systemd-service.nix
   ];
 
   # This value determines the NixOS release from which the default

@@ -1,9 +1,9 @@
 { pkgs, ... }:
 let
   sap = pkgs.makeDesktopItem {
-    name = "sap-web";
-    desktopName = "SAP (Web)";
-    exec = "firefox --new-window https://sap.example.com";
+    name = "jais";
+    desktopName = "Já.is (Web)";
+    exec = "firefox --new-window https://www.ja.is";
     icon = "firefox";
     categories = [ "Network" ];
   };
@@ -17,9 +17,9 @@ let
   };
 
   intranet = pkgs.makeDesktopItem {
-    name = "intranet";
-    desktopName = "Intranet";
-    exec = "chromium --app=https://intranet.example.com";
+    name = "SAP (Web)";
+    desktopName = "SAP (Web)";
+    exec = "chromium --app=https://sapapp-p1.postur.is/sap/bc/gui/sap/its/webgui";
     icon = "chromium";
     categories = [ "Network" ];
   };

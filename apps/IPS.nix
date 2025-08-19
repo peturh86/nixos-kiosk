@@ -125,43 +125,6 @@ echo "Wine DLL overrides: $WINEDLLOVERRIDES"
 echo "Current user: $(whoami)"
 echo "Display: $DISPLAY"
 
-# Clean up old Wine prefixes to save space (keep only current one)
-echo "Cleaning up old IPS Wine prefixes..."
-find "$HOME" -maxdepth 1 -name ".wine-ips-*" -type d 2>/dev/null | while read old_prefix; do
-    if [ "$old_prefix" != "$WINEPREFIX" ]; then
-        echo "Removing old Wine prefix: $old_prefix"
-        
-        # Kill any Wine processes that might be using the old prefix
-        if [ -d "$old_prefix" ]; then
-            echo "Stopping Wine processes for old prefix..."
-            WINEPREFIX="$old_prefix" wineserver -k 2>/dev/null || true
-            sleep 1
-        fi
-        
-        # Check if we can write to the directory
-        if [ -w "$old_prefix" ]; then
-            # Try to remove with force and without error on failure
-            if rm -rf "$old_prefix" 2>/dev/null; then
-                echo "Successfully removed: $old_prefix"
-            else
-                echo "Warning: Could not remove $old_prefix (permission issue)"
-                echo "Marking for manual cleanup..."
-                touch "$HOME/.wine-ips-cleanup-needed" 2>/dev/null || true
-            fi
-        else
-            echo "Warning: No write permission for $old_prefix"
-            echo "You may need to remove it manually or check file ownership"
-            touch "$HOME/.wine-ips-cleanup-needed" 2>/dev/null || true
-        fi
-    fi
-done
-
-# Check if manual cleanup is needed
-if [ -f "$HOME/.wine-ips-cleanup-needed" ]; then
-    echo "Note: Some old Wine prefixes may need manual cleanup"
-    echo "Run 'ips-uninstall' as the same user to clean them up"
-fi
-
 # Create Wine prefix if it doesn't exist
 if [ ! -d "$WINEPREFIX" ]; then
     echo "=== Setting up IPS Wine environment (Fast Setup) ==="
@@ -629,6 +592,61 @@ echo
 echo "To force a fresh Wine environment: ips-uninstall && ips"
 EOF
       chmod +x $out/bin/ips-diagnose
+      
+      # Create cleanup tool for old Wine prefixes
+      cat > $out/bin/ips-cleanup <<'EOF'
+#!/bin/sh
+echo "=== IPS Wine Prefix Cleanup ==="
+
+# Calculate the current hash to avoid removing active prefix
+CURRENT_IPS_HASH=$(echo "${placeholder "out"}" | sha256sum | cut -d' ' -f1 | head -c16)
+CURRENT_WINEPREFIX="$HOME/.wine-ips-$CURRENT_IPS_HASH"
+
+echo "Current IPS hash: $CURRENT_IPS_HASH"
+echo "Current Wine prefix: $CURRENT_WINEPREFIX"
+echo
+
+# Find and clean up old Wine prefixes
+REMOVED=0
+FAILED=0
+find "$HOME" -maxdepth 1 -name ".wine-ips-*" -type d 2>/dev/null | while read old_prefix; do
+    if [ "$old_prefix" != "$CURRENT_WINEPREFIX" ]; then
+        echo "Found old Wine prefix: $old_prefix"
+        
+        # Kill any Wine processes that might be using the old prefix
+        if [ -d "$old_prefix" ]; then
+            echo "  Stopping Wine processes for old prefix..."
+            WINEPREFIX="$old_prefix" wineserver -k 2>/dev/null || true
+            sleep 1
+        fi
+        
+        # Try to remove
+        if rm -rf "$old_prefix" 2>/dev/null; then
+            echo "  ✓ Successfully removed: $old_prefix"
+            REMOVED=$((REMOVED + 1))
+        else
+            echo "  ❌ Failed to remove: $old_prefix"
+            echo "     You may need to run: sudo rm -rf '$old_prefix'"
+            FAILED=$((FAILED + 1))
+        fi
+    fi
+done
+
+if [ $REMOVED -eq 0 ] && [ $FAILED -eq 0 ]; then
+    echo "No old IPS Wine prefixes found to clean up"
+else
+    echo
+    echo "Cleanup summary:"
+    echo "  Removed: $REMOVED prefixes"
+    if [ $FAILED -gt 0 ]; then
+        echo "  Failed: $FAILED prefixes (may need manual removal)"
+    fi
+fi
+
+# Remove cleanup marker if it exists
+rm -f "$HOME/.wine-ips-cleanup-needed" 2>/dev/null || true
+EOF
+      chmod +x $out/bin/ips-cleanup
       
       # Create uninstaller
       cat > $out/bin/ips-uninstall <<'EOF'

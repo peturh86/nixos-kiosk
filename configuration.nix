@@ -15,6 +15,7 @@
 
     ./modules/ui/xserver-openbox.nix
     ./modules/ui/dm-lightdm.nix
+    ./modules/ui/openbox-menu.nix
     ./modules/panel/tint2-packages.nix
     ./modules/panel/tint2-config.nix
     ./modules/apps/desktop-entries.nix

@@ -1,0 +1,51 @@
+{ pkgs, ... }:
+{
+  environment.etc."xdg/openbox/menu.xml".text = ''
+    <?xml version="1.0" encoding="UTF-8"?>
+    <openbox_menu xmlns="http://openbox.org/"
+                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                  xsi:schemaLocation="http://openbox.org/
+                  file:///usr/share/openbox/menu.xsd">
+
+    <menu id="root-menu" label="Menu">
+        <!-- Your 3 kiosk applications -->
+        <item label="Web Browser">
+            <action name="Execute">
+                <command>firefox --new-window https://www.ja.is</command>
+            </action>
+        </item>
+        
+        <item label="IPS">
+            <action name="Execute">
+                <command>ips</command>
+            </action>
+        </item>
+        
+        <item label="SAP">
+            <action name="Execute">
+                <command>chromium --app=https://sapapp-p1.postur.is/sap/bc/gui/sap/its/webgui</command>
+            </action>
+        </item>
+        
+        <separator />
+        
+        <!-- System controls -->
+        <item label="Reboot">
+            <action name="Execute">
+                <command>systemctl reboot</command>
+            </action>
+        </item>
+        
+        <!-- Optional: Add shutdown if needed -->
+        <!-- 
+        <item label="Shutdown">
+            <action name="Execute">
+                <command>systemctl poweroff</command>
+            </action>
+        </item>
+        -->
+    </menu>
+
+    </openbox_menu>
+  '';
+}

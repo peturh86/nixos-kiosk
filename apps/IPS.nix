@@ -58,31 +58,49 @@ if [ ! -d "$WINEPREFIX" ]; then
     winetricks -q corefonts vcrun2019 2>/dev/null || echo "Some components failed to install (this is often normal)"
 fi
 
-# Find and run IPS.exe
-IPS_PATH="${placeholder "out"}/share/ips"
+# Copy IPS files to Wine's C: drive if not already there
+WINE_C_DRIVE="$WINEPREFIX/drive_c"
+WINE_IPS_DIR="$WINE_C_DRIVE/IPS"
+
+if [ ! -d "$WINE_IPS_DIR" ]; then
+    echo "Copying IPS files to Wine C: drive..."
+    mkdir -p "$WINE_IPS_DIR"
+    cp -r "${placeholder "out"}/share/ips/"* "$WINE_IPS_DIR/"
+    echo "IPS files copied to: $WINE_IPS_DIR"
+else
+    echo "IPS files already present in Wine C: drive"
+fi
+
+# Find and run IPS.exe from Wine's C: drive
 IPS_EXE=""
 
-echo "Looking for IPS executable in: $IPS_PATH"
+echo "Looking for IPS executable in Wine C: drive: $WINE_IPS_DIR"
 
-# Look for IPS.exe in the extracted files
-if [ -f "$IPS_PATH/IPS.exe" ]; then
-    IPS_EXE="$IPS_PATH/IPS.exe"
-    echo "Found: $IPS_EXE"
-elif [ -f "$IPS_PATH/ips.exe" ]; then
-    IPS_EXE="$IPS_PATH/ips.exe"
-    echo "Found: $IPS_EXE"
+# Look for IPS.exe in the Wine directory
+if [ -f "$WINE_IPS_DIR/IPS.exe" ]; then
+    IPS_EXE="C:\\IPS\\IPS.exe"
+    echo "Found: $WINE_IPS_DIR/IPS.exe (Wine path: $IPS_EXE)"
+elif [ -f "$WINE_IPS_DIR/ips.exe" ]; then
+    IPS_EXE="C:\\IPS\\ips.exe"
+    echo "Found: $WINE_IPS_DIR/ips.exe (Wine path: $IPS_EXE)"
 else
     # Search for any .exe file
     echo "Searching for any .exe files..."
-    IPS_EXE=$(find "$IPS_PATH" -name "*.exe" -type f | head -1)
-    if [ -n "$IPS_EXE" ]; then
-        echo "Found executable: $IPS_EXE"
+    FOUND_EXE=$(find "$WINE_IPS_DIR" -name "*.exe" -type f | head -1)
+    if [ -n "$FOUND_EXE" ]; then
+        # Convert Unix path to Windows path for Wine
+        REL_PATH=$(echo "$FOUND_EXE" | sed "s|$WINE_IPS_DIR/||")
+        IPS_EXE="C:\\IPS\\$(echo "$REL_PATH" | sed 's|/|\\|g')"
+        echo "Found executable: $FOUND_EXE (Wine path: $IPS_EXE)"
     fi
 fi
 
-if [ -n "$IPS_EXE" ] && [ -f "$IPS_EXE" ]; then
-    echo "Starting IPS from: $IPS_EXE"
+if [ -n "$IPS_EXE" ]; then
+    echo "Starting IPS using Wine path: $IPS_EXE"
     echo "Wine command: wine \"$IPS_EXE\""
+    
+    # Change to IPS directory in Wine before running
+    cd "$WINE_IPS_DIR"
     
     # Run with more verbose output and timeout
     timeout 30 wine "$IPS_EXE" "$@" 2>&1 | while IFS= read -r line; do
@@ -99,11 +117,11 @@ if [ -n "$IPS_EXE" ] && [ -f "$IPS_EXE" ]; then
     fi
 else
     echo "Error: Could not find IPS.exe"
-    echo "Available files in $IPS_PATH:"
-    ls -la "$IPS_PATH" 2>/dev/null || echo "Directory not found"
+    echo "Available files in $WINE_IPS_DIR:"
+    ls -la "$WINE_IPS_DIR" 2>/dev/null || echo "Directory not found"
     echo
     echo "Looking for .exe files:"
-    find "$IPS_PATH" -name "*.exe" -type f 2>/dev/null || echo "No .exe files found"
+    find "$WINE_IPS_DIR" -name "*.exe" -type f 2>/dev/null || echo "No .exe files found"
     exit 1
 fi
 EOF
@@ -136,21 +154,36 @@ EOF
       cat > $out/bin/ips-debug <<'EOF'
 #!/bin/sh
 echo "=== IPS Debug Information ==="
-echo "IPS files location: ${placeholder "out"}/share/ips"
+echo "IPS files location (Nix store): ${placeholder "out"}/share/ips"
 echo "Wine prefix: $HOME/.wine-ips"
-echo
-echo "Contents of IPS directory:"
-ls -la "${placeholder "out"}/share/ips"
-echo
-echo "Executable files found:"
-find "${placeholder "out"}/share/ips" -name "*.exe" -type f 2>/dev/null || echo "No .exe files found"
-echo
-echo "Wine prefix status:"
+
 if [ -d "$HOME/.wine-ips" ]; then
-    echo "Wine prefix exists"
+    echo "Wine C: drive: $HOME/.wine-ips/drive_c"
+    echo "Wine IPS directory: $HOME/.wine-ips/drive_c/IPS"
+    echo
+    echo "Wine C: drive contents:"
+    ls -la "$HOME/.wine-ips/drive_c/" 2>/dev/null || echo "No Wine C: drive found"
+    echo
+    echo "IPS files in Wine C: drive:"
+    if [ -d "$HOME/.wine-ips/drive_c/IPS" ]; then
+        ls -la "$HOME/.wine-ips/drive_c/IPS"
+        echo
+        echo "Executable files in Wine IPS directory:"
+        find "$HOME/.wine-ips/drive_c/IPS" -name "*.exe" -type f 2>/dev/null || echo "No .exe files found in Wine directory"
+    else
+        echo "IPS directory not found in Wine C: drive"
+        echo "Run 'ips' first to copy files to Wine"
+    fi
 else
     echo "Wine prefix not created yet (run 'ips' first)"
 fi
+
+echo
+echo "Original IPS files (Nix store):"
+ls -la "${placeholder "out"}/share/ips"
+echo
+echo "Executable files in Nix store:"
+find "${placeholder "out"}/share/ips" -name "*.exe" -type f 2>/dev/null || echo "No .exe files found"
 EOF
       chmod +x $out/bin/ips-debug
       

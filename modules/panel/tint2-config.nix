@@ -27,7 +27,7 @@ let
 in
 {
   environment.etc."xdg/tint2/tint2rc".text = ''
-    panel_items = LTS
+    panel_items = LTSC
     panel_position = bottom center horizontal
     panel_size = 100% 48
     panel_background_id = 1
@@ -116,13 +116,15 @@ in
     time2_format = %A %d %B
     time1_timezone = 
     time2_timezone = 
+    time1_font = sans 10
+    time2_font = sans 8
     clock_font_color = #ffffff 100
-    clock_padding = 2 0
+    clock_padding = 8 4
     clock_background_id = 0
-    clock_tooltip = 
+    clock_tooltip = %A %d %B %Y
     clock_tooltip_timezone = 
     clock_lclick_command = 
-    clock_rclick_command = orage
+    clock_rclick_command = 
     clock_mclick_command = 
     clock_uwheel_command = 
     clock_dwheel_command = 

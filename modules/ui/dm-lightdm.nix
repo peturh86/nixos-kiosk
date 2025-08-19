@@ -6,9 +6,12 @@
     desktopManager.xterm.enable = false;
   };
 
-  services.displayManager = {
+  services.xserver.displayManager = {
     lightdm.enable = true;                 # pick LightDM
     sddm.enable = lib.mkForce false;     # explicitly off
+  };
+
+  services.displayManager = {
     defaultSession = "none+openbox";
   };
 }

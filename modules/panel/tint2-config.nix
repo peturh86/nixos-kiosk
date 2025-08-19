@@ -29,7 +29,7 @@ in
   environment.etc."xdg/tint2/tint2rc".text = ''
     panel_items = LTS
     panel_position = bottom center horizontal
-    panel_size = 100% 36
+    panel_size = 100% 48
     panel_background_id = 1
     panel_border_width = 0
     panel_margin = 0 0
@@ -102,7 +102,7 @@ in
     launcher_padding = 8 12 8
     launcher_background_id = 0
     launcher_icon_background_id = 0
-    launcher_icon_size = 64
+    launcher_icon_size = 40
     launcher_icon_asb = 100 0 0
     launcher_icon_theme_override = 0
     startup_notifications = 1

@@ -1,10 +1,14 @@
 { pkgs, ... }:
 let
+  # Custom icon paths - place your icons in assets/icons/
+  iconPath = "/etc/nixos/assets/icons";
+  
   sap = pkgs.makeDesktopItem {
     name = "web";
     desktopName = "Web";
     exec = "firefox --new-window https://www.ja.is";
-    icon = "firefox";
+    # Use custom icon if available, fallback to system icon
+    icon = "${iconPath}/web.png";
     categories = [ "Network" ];
   };
 
@@ -12,7 +16,8 @@ let
     name = "ips";
     desktopName = "IPS";
     exec = "ips";
-    icon = "wine";
+    # Use custom icon if available, fallback to system icon
+    icon = "${iconPath}/ips.png";
     categories = [ "Utility" ];
   };
 
@@ -20,11 +25,19 @@ let
     name = "sap";
     desktopName = "SAP (Web)";
     exec = "chromium --app=https://sapapp-p1.postur.is/sap/bc/gui/sap/its/webgui";
-    icon = "chromium";
+    # Use custom icon if available, fallback to system icon
+    icon = "${iconPath}/sap.png";
     categories = [ "Network" ];
   };
 in
 {
+  # Install custom icons to system
+  environment.etc = {
+    "nixos/assets/icons/web.png".source = ../../../assets/icons/web.png or (pkgs.writeText "placeholder" "");
+    "nixos/assets/icons/ips.png".source = ../../../assets/icons/ips.png or (pkgs.writeText "placeholder" "");
+    "nixos/assets/icons/sap.png".source = ../../../assets/icons/sap.png or (pkgs.writeText "placeholder" "");
+  };
+
   environment.etc."xdg/tint2/tint2rc".text = ''
     panel_items = LTS
     panel_position = bottom center horizontal
@@ -98,10 +111,10 @@ in
     systray_name_filter = 
 
     # Launcher
-    launcher_padding = 2 4 2
+    launcher_padding = 8 12 8
     launcher_background_id = 0
     launcher_icon_background_id = 0
-    launcher_icon_size = 24
+    launcher_icon_size = 32
     launcher_icon_asb = 100 0 0
     launcher_icon_theme_override = 0
     startup_notifications = 1

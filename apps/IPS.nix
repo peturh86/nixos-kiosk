@@ -323,7 +323,28 @@ if [ -n "$IPS_EXE" ]; then
     echo "Available DLL files in IPS directory:"
     find "$WINE_IPS_DIR" -name "*.dll" -type f | head -10
     
+    # Ensure we're using the correct Wine prefix
+    export WINEPREFIX="$WINEPREFIX"
+    echo "Using Wine prefix: $WINEPREFIX"
+    
+    # Test Wine prefix accessibility
+    if ! wine --version >/dev/null 2>&1; then
+        echo "❌ Wine is not working properly"
+        exit 1
+    fi
+    
+    # Test if we can access the IPS directory from Wine's perspective
+    echo "Testing Wine access to IPS directory..."
+    if wine cmd /c "dir C:\\IPS\\Bin" 2>/dev/null | grep -q "IPS.exe"; then
+        echo "✓ Wine can access IPS.exe"
+    else
+        echo "❌ Wine cannot access IPS.exe in C:\\IPS\\Bin"
+        echo "Wine directory listing:"
+        wine cmd /c "dir C:\\IPS" 2>/dev/null || echo "Failed to list C:\\IPS"
+    fi
+    
     # Run with more verbose output and timeout
+    echo "Attempting to launch IPS..."
     timeout 60 wine "$IPS_EXE" "$@" 2>&1 | while IFS= read -r line; do
         echo "[Wine] $line"
     done
@@ -338,9 +359,13 @@ if [ -n "$IPS_EXE" ]; then
     elif [ $EXIT_CODE -ne 0 ]; then
         echo "IPS exited with error code: $EXIT_CODE"
         echo "Common solutions:"
-        echo "1. Run: ips-configure-odbc (for database connection issues)"
-        echo "2. Check if all DLL files are present in the IPS directory"
-        echo "3. Try: ips-uninstall && ips (for fresh Wine environment)"
+        echo "1. Error c0000135: Missing DLL dependencies"
+        echo "   - Install missing .NET framework: winetricks dotnet48"
+        echo "   - Install VC++ runtime: winetricks vcrun2019"
+        echo "2. Run: ips-configure-odbc (for database connection issues)"
+        echo "3. Check if all DLL files are present in the IPS directory"
+        echo "4. Try: ips-uninstall && ips (for fresh Wine environment)"
+        echo "5. Run: ips-diagnose (for comprehensive diagnostics)"
     fi
 else
     echo "Error: Could not find or run IPS.exe"
@@ -493,6 +518,44 @@ echo "  wine regedit"
 echo "Navigate to: HKEY_LOCAL_MACHINE\\SOFTWARE\\ODBC\\ODBCINST.INI"
 EOF
       chmod +x $out/bin/ips-configure-odbc
+      
+      # Create dependency installer tool
+      cat > $out/bin/ips-install-deps <<'EOF'
+#!/bin/sh
+# Install additional Windows dependencies for IPS
+echo "Installing additional Windows dependencies for IPS..."
+
+# Calculate the same hash as the launcher
+IPS_HASH=$(echo "${placeholder "out"}" | sha256sum | cut -d' ' -f1 | head -c16)
+export WINEPREFIX="$HOME/.wine-ips-$IPS_HASH"
+export WINE_USER="fband"
+
+if [ ! -d "$WINEPREFIX" ]; then
+    echo "❌ Wine prefix does not exist. Run 'ips' first to create it."
+    exit 1
+fi
+
+echo "Installing .NET Framework 4.8..."
+if timeout 300 ${pkgs.winetricks}/bin/winetricks -q dotnet48 2>/dev/null; then
+    echo "✓ .NET Framework 4.8 installed"
+else
+    echo "⚠ Failed to install .NET Framework 4.8"
+fi
+
+echo "Installing additional Visual C++ runtimes..."
+if timeout 180 ${pkgs.winetricks}/bin/winetricks -q vcrun2017 vcrun2015 2>/dev/null; then
+    echo "✓ Additional VC++ runtimes installed"
+else
+    echo "⚠ Failed to install additional VC++ runtimes"
+fi
+
+echo "Installing Windows libraries that might be needed..."
+${pkgs.winetricks}/bin/winetricks -q msxml6 gdiplus 2>/dev/null
+
+echo "Dependencies installation completed."
+echo "Try running 'ips' again."
+EOF
+      chmod +x $out/bin/ips-install-deps
       
       # Create comprehensive Wine diagnostics tool
       cat > $out/bin/ips-diagnose <<'EOF'

@@ -27,8 +27,17 @@ let
       # Create installation directory
       mkdir -p $out/share/ips
       
-      # Copy all extracted files
-      cp -r * $out/share/ips/
+      # Check if there's an IPS subdirectory in the extracted files
+      if [ -d "IPS" ]; then
+        echo "Found IPS subdirectory, copying contents..."
+        cp -r IPS/* $out/share/ips/
+      else
+        echo "No IPS subdirectory found, copying all files..."
+        cp -r * $out/share/ips/
+      fi
+      
+      echo "Final IPS directory structure:"
+      find $out/share/ips -type f -name "*.exe" | head -5
       
       # Create the main launcher script
       mkdir -p $out/bin
@@ -52,7 +61,21 @@ echo "Cleaning up old IPS Wine prefixes..."
 find "$HOME" -maxdepth 1 -name ".wine-ips-*" -type d | while read old_prefix; do
     if [ "$old_prefix" != "$WINEPREFIX" ]; then
         echo "Removing old Wine prefix: $old_prefix"
-        rm -rf "$old_prefix"
+        
+        # Kill any Wine processes that might be using the old prefix
+        if [ -d "$old_prefix" ]; then
+            echo "Stopping Wine processes for old prefix..."
+            WINEPREFIX="$old_prefix" wineserver -k 2>/dev/null || true
+            sleep 1
+        fi
+        
+        # Try to remove with force and without error on failure
+        if rm -rf "$old_prefix" 2>/dev/null; then
+            echo "Successfully removed: $old_prefix"
+        else
+            echo "Warning: Could not remove $old_prefix (may be in use)"
+            echo "You can manually remove it later with: rm -rf '$old_prefix'"
+        fi
     fi
 done
 
@@ -252,20 +275,41 @@ EOF
 #!/bin/sh
 echo "Removing all IPS Wine environments..."
 
+# Stop all Wine processes first
+echo "Stopping all Wine processes..."
+killall wine wineserver 2>/dev/null || true
+sleep 2
+
 # Remove all IPS Wine prefixes
 REMOVED=0
+FAILED=0
 for prefix in "$HOME"/.wine-ips-*; do
     if [ -d "$prefix" ]; then
         echo "Removing: $prefix"
-        rm -rf "$prefix"
-        REMOVED=$((REMOVED + 1))
+        
+        # Try to stop Wine server for this specific prefix
+        WINEPREFIX="$prefix" wineserver -k 2>/dev/null || true
+        sleep 1
+        
+        # Try to remove
+        if rm -rf "$prefix" 2>/dev/null; then
+            echo "Successfully removed: $prefix"
+            REMOVED=$((REMOVED + 1))
+        else
+            echo "Failed to remove: $prefix (permission denied or in use)"
+            echo "Try running: sudo rm -rf '$prefix'"
+            FAILED=$((FAILED + 1))
+        fi
     fi
 done
 
-if [ $REMOVED -eq 0 ]; then
+if [ $REMOVED -eq 0 ] && [ $FAILED -eq 0 ]; then
     echo "No IPS Wine environments found"
+elif [ $FAILED -gt 0 ]; then
+    echo "Removed $REMOVED environment(s), failed to remove $FAILED"
+    echo "You may need to manually remove remaining directories or reboot"
 else
-    echo "Removed $REMOVED IPS Wine environment(s)"
+    echo "Successfully removed $REMOVED IPS Wine environment(s)"
 fi
 
 echo "Note: IPS files remain in the Nix store"

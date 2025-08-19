@@ -258,7 +258,43 @@ LOGEOF
     echo "  User: fband"
 else
     echo "Using existing Wine environment (same IPS version)"
+    
+    # Ensure IPS files are present in existing environment
+    WINE_C_DRIVE="$WINEPREFIX/drive_c"
+    WINE_IPS_DIR="$WINE_C_DRIVE/IPS"
+    
+    if [ ! -d "$WINE_IPS_DIR" ] || [ ! -f "$WINE_IPS_DIR/Bin/IPS.exe" ]; then
+        echo "IPS files missing from existing environment - reinstalling..."
+        mkdir -p "$WINE_IPS_DIR"
+        if cp -r "${placeholder "out"}/share/ips/"* "$WINE_IPS_DIR/"; then
+            echo "✓ IPS files reinstalled successfully"
+        else
+            echo "❌ Failed to reinstall IPS files"
+            exit 1
+        fi
+    fi
 fi
+
+# Ensure Wine paths are set for both new and existing environments
+WINE_C_DRIVE="$WINEPREFIX/drive_c"
+WINE_IPS_DIR="$WINE_C_DRIVE/IPS"
+
+# Debug: Show what's actually in the IPS directory
+echo "=== IPS Directory Debug ==="
+echo "IPS directory path: $WINE_IPS_DIR"
+if [ -d "$WINE_IPS_DIR" ]; then
+    echo "IPS directory exists. Contents:"
+    ls -la "$WINE_IPS_DIR"
+    echo "Bin subdirectory contents:"
+    if [ -d "$WINE_IPS_DIR/Bin" ]; then
+        ls -la "$WINE_IPS_DIR/Bin"
+    else
+        echo "❌ Bin subdirectory not found"
+    fi
+else
+    echo "❌ IPS directory does not exist"
+fi
+echo "=========================="
 
 # Wine paths
 WINE_C_DRIVE="$WINEPREFIX/drive_c"
@@ -293,11 +329,20 @@ else
     echo "Searching for all .exe files:"
     find "$WINE_IPS_DIR" -name "*.exe" -type f 2>/dev/null | while read exe_file; do
         rel_path=$(echo "$exe_file" | sed "s|$WINE_IPS_DIR/||")
-        echo "  $rel_path"
+        echo "  Found: $rel_path"
     done
-    echo
-    echo "Please ensure IPS.exe is in the ZIP file in the expected location"
-    exit 1
+    
+    # Try to find any IPS-related executable
+    IPS_RELATED=$(find "$WINE_IPS_DIR" -name "*IPS*.exe" -type f 2>/dev/null | head -1)
+    if [ -n "$IPS_RELATED" ]; then
+        rel_path=$(echo "$IPS_RELATED" | sed "s|$WINE_IPS_DIR/||")
+        IPS_EXE="C:\\IPS\\$(echo "$rel_path" | sed 's|/|\\|g')"
+        echo "Using IPS-related executable: $IPS_RELATED (Wine path: $IPS_EXE)"
+    else
+        echo "No IPS-related executable found"
+        echo "Please check that IPS.exe exists in the ZIP file"
+        exit 1
+    fi
 fi
 
 if [ -n "$IPS_EXE" ]; then

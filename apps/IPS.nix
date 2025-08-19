@@ -557,6 +557,114 @@ echo "Try running 'ips' again."
 EOF
       chmod +x $out/bin/ips-install-deps
       
+      # Create DLL dependency analyzer tool
+      cat > $out/bin/ips-check-dlls <<'EOF'
+#!/bin/sh
+# Analyze IPS DLL dependencies and missing libraries
+echo "=== IPS DLL Dependency Analysis ==="
+
+# Calculate the same hash as the launcher
+IPS_HASH=$(echo "${placeholder "out"}" | sha256sum | cut -d' ' -f1 | head -c16)
+export WINEPREFIX="$HOME/.wine-ips-$IPS_HASH"
+export WINEARCH=win32
+
+if [ ! -d "$WINEPREFIX" ]; then
+    echo "❌ Wine prefix does not exist. Run 'ips' first to create it."
+    exit 1
+fi
+
+echo "Wine prefix: $WINEPREFIX"
+IPS_DIR="$WINEPREFIX/drive_c/IPS"
+
+if [ ! -d "$IPS_DIR" ]; then
+    echo "❌ IPS directory not found. Run 'ips' first to extract IPS files."
+    exit 1
+fi
+
+echo "Checking IPS.exe dependencies..."
+echo ""
+
+# Method 1: Use Wine's dependency walker equivalent
+echo "=== Wine DLL Check ==="
+if command -v winedump >/dev/null 2>&1; then
+    echo "Analyzing IPS.exe with winedump:"
+    winedump -j import "$IPS_DIR/Bin/IPS.exe" 2>/dev/null | grep -E "(DLL|dll)" | head -20
+    echo ""
+fi
+
+# Method 2: Try to run with maximum Wine debugging to see DLL load failures
+echo "=== Detailed Wine Debug Output ==="
+echo "Running IPS.exe with full DLL debugging (this will show missing DLLs):"
+echo "Note: This may produce a lot of output, look for 'err:' lines about missing DLLs"
+echo ""
+
+cd "$IPS_DIR"
+WINEDEBUG=+dll,+module,+loaddll wine "C:\\IPS\\Bin\\IPS.exe" 2>&1 | head -50 | while IFS= read -r line; do
+    case "$line" in
+        *"err:"*"dll"*|*"err:"*"module"*|*"LoadLibrary"*|*"DLL"*|*"c0000135"*)
+            echo "🔍 IMPORTANT: $line"
+            ;;
+        *"warn:"*"dll"*|*"warn:"*"module"*)
+            echo "⚠️  WARNING: $line"
+            ;;
+        *"trace:"*) 
+            # Skip trace messages (too verbose)
+            ;;
+        *)
+            echo "   $line"
+            ;;
+    esac
+done
+
+echo ""
+echo "=== DLL Files Present in IPS Directory ==="
+find "$IPS_DIR" -name "*.dll" -type f | sort
+
+echo ""
+echo "=== Common Missing DLL Solutions ==="
+echo "If you see errors about missing DLLs, try:"
+echo "1. For .NET DLLs (System.*, mscorlib, etc): ips-install-deps (installs .NET Framework)"
+echo "2. For MSVCR/MSVCP DLLs: Already installed via vcrun2019"
+echo "3. For ODBC DLLs: ips-configure-odbc"
+echo "4. For Windows API DLLs: winetricks might have specific packages"
+echo ""
+echo "Run this command again after installing dependencies to verify fixes."
+EOF
+      chmod +x $out/bin/ips-check-dlls
+      
+      # Create a simple Wine debug runner
+      cat > $out/bin/ips-debug-run <<'EOF'
+#!/bin/sh
+# Run IPS with detailed debugging to identify missing DLLs
+echo "Running IPS with Wine debugging enabled..."
+echo "This will show detailed information about DLL loading failures."
+echo "Press Ctrl+C to stop if it gets too verbose."
+echo ""
+
+# Calculate the same hash as the launcher
+IPS_HASH=$(echo "${placeholder "out"}" | sha256sum | cut -d' ' -f1 | head -c16)
+export WINEPREFIX="$HOME/.wine-ips-$IPS_HASH"
+export WINEARCH=win32
+
+if [ ! -d "$WINEPREFIX" ]; then
+    echo "❌ Wine prefix does not exist. Run 'ips' first to create it."
+    exit 1
+fi
+
+IPS_DIR="$WINEPREFIX/drive_c/IPS"
+if [ ! -f "$IPS_DIR/Bin/IPS.exe" ]; then
+    echo "❌ IPS.exe not found. Run 'ips' first to extract IPS files."
+    exit 1
+fi
+
+cd "$IPS_DIR"
+
+echo "=== Running with DLL debugging enabled ==="
+export WINEDEBUG=+dll,+module
+wine "C:\\IPS\\Bin\\IPS.exe" "$@"
+EOF
+      chmod +x $out/bin/ips-debug-run
+      
       # Create comprehensive Wine diagnostics tool
       cat > $out/bin/ips-diagnose <<'EOF'
 #!/bin/sh

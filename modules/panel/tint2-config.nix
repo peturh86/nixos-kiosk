@@ -102,7 +102,7 @@ in
     launcher_padding = 8 12 8
     launcher_background_id = 0
     launcher_icon_background_id = 0
-    launcher_icon_size = 32
+    launcher_icon_size = 64
     launcher_icon_asb = 100 0 0
     launcher_icon_theme_override = 0
     startup_notifications = 1

@@ -96,13 +96,13 @@ echo "Looking for IPS executable in Wine C: drive: $WINE_IPS_DIR"
 
 # Look specifically for IPS.exe first (case variations)
 if [ -f "$WINE_IPS_DIR/IPS.exe" ]; then
-    IPS_EXE="C:\\IPS\\IPS.exe"
+    IPS_EXE="C:\\IPS\\Bin\\IPS.exe"
     echo "Found: $WINE_IPS_DIR/IPS.exe (Wine path: $IPS_EXE)"
 elif [ -f "$WINE_IPS_DIR/ips.exe" ]; then
-    IPS_EXE="C:\\IPS\\ips.exe"
+    IPS_EXE="C:\\IPS\\Bin\\ips.exe"
     echo "Found: $WINE_IPS_DIR/ips.exe (Wine path: $IPS_EXE)"
 elif [ -f "$WINE_IPS_DIR/Ips.exe" ]; then
-    IPS_EXE="C:\\IPS\\Ips.exe"
+    IPS_EXE="C:\\IPS\\Bin\\Ips.exe"
     echo "Found: $WINE_IPS_DIR/Ips.exe (Wine path: $IPS_EXE)"
 else
     echo "Error: IPS.exe not found in $WINE_IPS_DIR"

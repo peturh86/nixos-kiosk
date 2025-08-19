@@ -1,5 +1,11 @@
 { pkgs, ... }:
 {
+  # Ensure terminal is available for debugging
+  environment.systemPackages = with pkgs; [
+    konsole  # Primary terminal
+    xterm    # Fallback terminal
+  ];
+
   environment.etc."xdg/openbox/menu.xml".text = ''
     <?xml version="1.0" encoding="UTF-8"?>
     <openbox_menu xmlns="http://openbox.org/"
@@ -26,6 +32,35 @@
                 <command>chromium --app=https://sapapp-p1.postur.is/sap/bc/gui/sap/its/webgui</command>
             </action>
         </item>
+        
+        <separator />
+        
+        <!-- Debug tools -->
+        <menu id="debug-menu" label="Debug Tools">
+            <item label="Terminal">
+                <action name="Execute">
+                    <command>konsole</command>
+                </action>
+            </item>
+            
+            <item label="IPS Debug">
+                <action name="Execute">
+                    <command>konsole -e sh -c 'ips-debug; echo "Press Enter to close..."; read'</command>
+                </action>
+            </item>
+            
+            <item label="IPS Status">
+                <action name="Execute">
+                    <command>konsole -e sh -c 'ips-status; echo "Press Enter to close..."; read'</command>
+                </action>
+            </item>
+            
+            <item label="Wine Config">
+                <action name="Execute">
+                    <command>konsole -e sh -c 'export WINEPREFIX=$HOME/.wine-ips; winecfg'</command>
+                </action>
+            </item>
+        </menu>
         
         <separator />
         

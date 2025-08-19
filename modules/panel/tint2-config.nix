@@ -1,14 +1,11 @@
 { pkgs, ... }:
 let
-  # Custom icon paths - place your icons in assets/icons/
-  iconPath = "/etc/nixos/assets/icons";
-  
+  # For now, use system icons. You can update these paths later when you add custom icons
   sap = pkgs.makeDesktopItem {
     name = "web";
     desktopName = "Web";
     exec = "firefox --new-window https://www.ja.is";
-    # Use custom icon if available, fallback to system icon
-    icon = "${iconPath}/web.png";
+    icon = "firefox";  # Will use custom icon once you add web.png to assets/icons/
     categories = [ "Network" ];
   };
 
@@ -16,8 +13,7 @@ let
     name = "ips";
     desktopName = "IPS";
     exec = "ips";
-    # Use custom icon if available, fallback to system icon
-    icon = "${iconPath}/ips.png";
+    icon = "wine";     # Will use custom icon once you add ips.png to assets/icons/
     categories = [ "Utility" ];
   };
 
@@ -25,19 +21,11 @@ let
     name = "sap";
     desktopName = "SAP (Web)";
     exec = "chromium --app=https://sapapp-p1.postur.is/sap/bc/gui/sap/its/webgui";
-    # Use custom icon if available, fallback to system icon
-    icon = "${iconPath}/sap.png";
+    icon = "chromium"; # Will use custom icon once you add sap.png to assets/icons/
     categories = [ "Network" ];
   };
 in
 {
-  # Install custom icons to system
-  environment.etc = {
-    "nixos/assets/icons/web.png".source = ../../../assets/icons/web.png or (pkgs.writeText "placeholder" "");
-    "nixos/assets/icons/ips.png".source = ../../../assets/icons/ips.png or (pkgs.writeText "placeholder" "");
-    "nixos/assets/icons/sap.png".source = ../../../assets/icons/sap.png or (pkgs.writeText "placeholder" "");
-  };
-
   environment.etc."xdg/tint2/tint2rc".text = ''
     panel_items = LTS
     panel_position = bottom center horizontal

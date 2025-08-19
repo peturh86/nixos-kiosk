@@ -2,8 +2,8 @@
 {
   # Ensure terminal is available for debugging
   environment.systemPackages = with pkgs; [
-    konsole  # Primary terminal
-    xterm    # Fallback terminal
+    kdePackages.konsole  # Primary terminal (Qt 6 version)
+    xterm               # Fallback terminal
   ];
 
   environment.etc."xdg/openbox/menu.xml".text = ''

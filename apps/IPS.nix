@@ -38,6 +38,8 @@ let
       
       echo "Final IPS directory structure:"
       find $out/share/ips -type f -name "*.exe" | head -5
+      echo "All files in IPS directory:"
+      ls -la $out/share/ips/
       
       # Create the main launcher script
       mkdir -p $out/bin
@@ -50,9 +52,13 @@ IPS_HASH=$(echo "${placeholder "out"}" | sha256sum | cut -d' ' -f1 | head -c16)
 export WINEPREFIX="$HOME/.wine-ips-$IPS_HASH"
 export WINEARCH=win32
 
+# Set Wine environment variables for better database compatibility
+export WINEDLLOVERRIDES="odbc32,odbccp32=n,b"
+
 echo "=== IPS Launcher Debug ==="
 echo "IPS package hash: $IPS_HASH"
 echo "Wine prefix: $WINEPREFIX"
+echo "Wine DLL overrides: $WINEDLLOVERRIDES"
 echo "Current user: $(whoami)"
 echo "Display: $DISPLAY"
 
@@ -90,7 +96,28 @@ if [ ! -d "$WINEPREFIX" ]; then
     
     # Install common Windows components that might be needed
     echo "Installing Windows components..."
-    winetricks -q corefonts vcrun2019 2>/dev/null || echo "Some components failed to install (this is often normal)"
+    
+    # Install basic components
+    winetricks -q corefonts vcrun2019 2>/dev/null || echo "Some basic components failed to install (this is often normal)"
+    
+    # Install ODBC components for database connectivity
+    echo "Installing ODBC components for database connectivity..."
+    winetricks -q odbc32 2>/dev/null || echo "ODBC32 installation attempted"
+    winetricks -q mdac28 2>/dev/null || echo "MDAC 2.8 installation attempted"
+    winetricks -q jet40 2>/dev/null || echo "Jet 4.0 installation attempted"
+    
+    # Install additional .NET and database components that IPS might need
+    echo "Installing additional runtime components..."
+    winetricks -q dotnet48 2>/dev/null || echo ".NET 4.8 installation attempted"
+    winetricks -q vcrun2015 2>/dev/null || echo "VC++ 2015 installation attempted"
+    winetricks -q vcrun2019 2>/dev/null || echo "VC++ 2019 installation attempted"
+    
+    # Install additional .NET components
+    echo "Installing .NET Framework components..."
+    winetricks -q dotnet35 2>/dev/null || echo ".NET 3.5 installation attempted"
+    winetricks -q dotnet40 2>/dev/null || echo ".NET 4.0 installation attempted"
+    
+    echo "Wine component installation complete"
     
     # Copy IPS files to Wine's C: drive
     WINE_C_DRIVE="$WINEPREFIX/drive_c"
@@ -152,11 +179,19 @@ if [ -n "$IPS_EXE" ]; then
     echo "Starting IPS using Wine path: $IPS_EXE"
     echo "Wine command: wine \"$IPS_EXE\""
     
-    # Change to IPS directory in Wine before running
+    # Change to IPS directory in Wine before running (important for DLL loading)
     cd "$WINE_IPS_DIR"
+    echo "Working directory: $(pwd)"
+    
+    # Set additional Wine environment for better DLL loading
+    export WINEDLLPATH="$WINE_IPS_DIR/Bin;$WINE_IPS_DIR"
+    
+    # Show available DLL files for debugging
+    echo "Available DLL files in IPS directory:"
+    find "$WINE_IPS_DIR" -name "*.dll" -type f | head -10
     
     # Run with more verbose output and timeout
-    timeout 30 wine "$IPS_EXE" "$@" 2>&1 | while IFS= read -r line; do
+    timeout 60 wine "$IPS_EXE" "$@" 2>&1 | while IFS= read -r line; do
         echo "[Wine] $line"
     done
     
@@ -164,9 +199,15 @@ if [ -n "$IPS_EXE" ]; then
     echo "Wine exit code: $EXIT_CODE"
     
     if [ $EXIT_CODE -eq 124 ]; then
-        echo "Warning: Wine process timed out after 30 seconds"
+        echo "Warning: Wine process timed out after 60 seconds"
         echo "This might mean IPS is running in background or hung"
         echo "Check with: ps aux | grep wine"
+    elif [ $EXIT_CODE -ne 0 ]; then
+        echo "IPS exited with error code: $EXIT_CODE"
+        echo "Common solutions:"
+        echo "1. Run: ips-configure-odbc (for database connection issues)"
+        echo "2. Check if all DLL files are present in the IPS directory"
+        echo "3. Try: ips-uninstall && ips (for fresh Wine environment)"
     fi
 else
     echo "Error: Could not find or run IPS.exe"
@@ -269,6 +310,42 @@ echo "Executable files in Nix store:"
 find "${placeholder "out"}/share/ips" -name "*.exe" -type f 2>/dev/null || echo "No .exe files found"
 EOF
       chmod +x $out/bin/ips-debug
+      
+      # Create ODBC configuration helper
+      cat > $out/bin/ips-configure-odbc <<'EOF'
+#!/bin/sh
+echo "=== IPS ODBC Configuration ==="
+
+# Calculate the same hash as the launcher
+IPS_HASH=$(echo "${placeholder "out"}" | sha256sum | cut -d' ' -f1 | head -c16)
+CURRENT_WINEPREFIX="$HOME/.wine-ips-$IPS_HASH"
+
+if [ ! -d "$CURRENT_WINEPREFIX" ]; then
+    echo "Wine prefix not found. Run 'ips' first to create it."
+    exit 1
+fi
+
+export WINEPREFIX="$CURRENT_WINEPREFIX"
+export WINEARCH=win32
+
+echo "Configuring ODBC for IPS..."
+echo "Wine prefix: $WINEPREFIX"
+
+# Open Wine's ODBC configuration
+echo "Opening ODBC Data Source Administrator..."
+echo "This will help you configure database connections for IPS"
+echo "Look for SQL Server, Oracle, or other database drivers"
+echo
+
+wine control odbccp32.cpl
+
+echo
+echo "ODBC configuration completed"
+echo "You can also manually edit registry entries if needed:"
+echo "  wine regedit"
+echo "Navigate to: HKEY_LOCAL_MACHINE\\SOFTWARE\\ODBC\\ODBCINST.INI"
+EOF
+      chmod +x $out/bin/ips-configure-odbc
       
       # Create uninstaller
       cat > $out/bin/ips-uninstall <<'EOF'

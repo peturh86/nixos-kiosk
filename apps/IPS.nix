@@ -158,6 +158,14 @@ if [ ! -d "$WINEPREFIX" ]; then
         echo "⚠ VC++ 2019 installation failed"
     fi
     
+    echo "Installing .NET Framework 4.8 (required by IPS)..."
+    if timeout 300 winetricks -q dotnet48 2>/dev/null; then
+        echo "✓ .NET Framework 4.8 installed"
+    else
+        echo "⚠ .NET Framework 4.8 installation failed - IPS may not work"
+        echo "  You can try manual installation with: ips-install-deps"
+    fi
+    
     echo "Installing ODBC components..."
     if timeout 120 winetricks -q odbc32 2>/dev/null; then
         echo "✓ ODBC installed"
@@ -360,12 +368,13 @@ if [ -n "$IPS_EXE" ]; then
         echo "IPS exited with error code: $EXIT_CODE"
         echo "Common solutions:"
         echo "1. Error c0000135: Missing DLL dependencies"
-        echo "   - Install missing .NET framework: winetricks dotnet48"
-        echo "   - Install VC++ runtime: winetricks vcrun2019"
+        echo "   - .NET Framework required: winetricks dotnet48 (should be auto-installed)"
+        echo "   - Install missing VC++ runtime: winetricks vcrun2019"
         echo "2. Run: ips-configure-odbc (for database connection issues)"
         echo "3. Check if all DLL files are present in the IPS directory"
-        echo "4. Try: ips-uninstall && ips (for fresh Wine environment)"
-        echo "5. Run: ips-diagnose (for comprehensive diagnostics)"
+        echo "4. Try: ips-install-deps (for additional dependencies)"
+        echo "5. Try: ips-uninstall && ips (for fresh Wine environment)"
+        echo "6. Run: ips-diagnose (for comprehensive diagnostics)"
     fi
 else
     echo "Error: Could not find or run IPS.exe"
@@ -664,6 +673,189 @@ export WINEDEBUG=+dll,+module
 wine "C:\\IPS\\Bin\\IPS.exe" "$@"
 EOF
       chmod +x $out/bin/ips-debug-run
+      
+      # Create database connectivity checker
+      cat > $out/bin/ips-check-database <<'EOF'
+#!/bin/sh
+# Check database connectivity and ODBC configuration for IPS
+echo "=== IPS Database Connectivity Diagnostics ==="
+
+# Calculate the same hash as the launcher
+IPS_HASH=$(echo "${placeholder "out"}" | sha256sum | cut -d' ' -f1 | head -c16)
+export WINEPREFIX="$HOME/.wine-ips-$IPS_HASH"
+export WINEARCH=win32
+
+if [ ! -d "$WINEPREFIX" ]; then
+    echo "❌ Wine prefix does not exist. Run 'ips' first to create it."
+    exit 1
+fi
+
+echo "Wine prefix: $WINEPREFIX"
+echo ""
+
+echo "=== ODBC Driver Check ==="
+echo "Checking installed ODBC drivers..."
+wine odbcconf /q /a {enumdrivers} 2>/dev/null | grep -E "(SQL Server|ODBC Driver)" || echo "No SQL Server ODBC drivers found"
+
+echo ""
+echo "=== ODBC Data Source Check ==="
+echo "Checking configured ODBC data sources..."
+wine odbcconf /q /a {enumdsn} 2>/dev/null || echo "Failed to enumerate ODBC data sources"
+
+echo ""
+echo "=== Registry ODBC Check ==="
+echo "Checking ODBC registry entries..."
+wine regedit /E /tmp/odbc_check.reg "HKEY_LOCAL_MACHINE\\SOFTWARE\\ODBC" 2>/dev/null
+if [ -f /tmp/odbc_check.reg ]; then
+    echo "✓ ODBC registry entries found"
+    grep -i "driver\|server\|database" /tmp/odbc_check.reg | head -10
+    rm -f /tmp/odbc_check.reg
+else
+    echo "❌ No ODBC registry entries found"
+fi
+
+echo ""
+echo "=== Network Connectivity Check ==="
+echo "Testing basic network connectivity..."
+
+# Try to ping common SQL Server ports
+echo "Checking common database servers and ports:"
+
+# Check if we can reach common database servers
+for server in "localhost" "127.0.0.1" "10.201.10.114" "ips-db" "database" "sql-server"; do
+    for port in "1433" "1434" "3306" "5432"; do
+        if timeout 3 nc -z "$server" "$port" 2>/dev/null; then
+            echo "✓ $server:$port - Reachable"
+        fi
+    done
+done
+
+echo ""
+echo "=== IPS Configuration File Check ==="
+IPS_DIR="$WINEPREFIX/drive_c/IPS"
+if [ -d "$IPS_DIR" ]; then
+    echo "Checking for IPS configuration files..."
+    find "$IPS_DIR" -name "*.ini" -o -name "*.config" -o -name "*.xml" | while read -r config_file; do
+        echo "📄 Found config: $config_file"
+        if grep -i "server\|database\|connection\|odbc" "$config_file" 2>/dev/null; then
+            echo "   ^ Contains database configuration"
+        fi
+    done
+    
+    echo ""
+    echo "Checking for database connection strings in files..."
+    find "$IPS_DIR" -name "*.ini" -o -name "*.config" -o -name "*.xml" -exec grep -l -i "server\|database\|connection" {} \; 2>/dev/null | head -5
+else
+    echo "❌ IPS directory not found"
+fi
+
+echo ""
+echo "=== Suggested Solutions ==="
+echo "1. If no ODBC drivers found:"
+echo "   - Run: ips-configure-odbc"
+echo "   - Manually install SQL Server ODBC driver"
+echo ""
+echo "2. If connectivity issues:"
+echo "   - Check network access to database server"
+echo "   - Verify server IP/hostname in IPS config files"
+echo "   - Check firewall settings"
+echo ""
+echo "3. If authentication issues:"
+echo "   - Verify database credentials in IPS config"
+echo "   - Check if domain authentication is required"
+echo "   - Test with SQL Server Management Studio equivalent"
+echo ""
+echo "4. Common IPS database settings to check:"
+echo "   - Server name/IP address"
+echo "   - Database name"
+echo "   - Authentication method (Windows/SQL Server)"
+echo "   - Connection timeout settings"
+EOF
+      chmod +x $out/bin/ips-check-database
+      
+      # Create database configuration helper
+      cat > $out/bin/ips-configure-database <<'EOF'
+#!/bin/sh
+# Help configure IPS database connection
+echo "=== IPS Database Configuration Helper ==="
+
+# Calculate the same hash as the launcher
+IPS_HASH=$(echo "${placeholder "out"}" | sha256sum | cut -d' ' -f1 | head -c16)
+export WINEPREFIX="$HOME/.wine-ips-$IPS_HASH"
+export WINEARCH=win32
+
+if [ ! -d "$WINEPREFIX" ]; then
+    echo "❌ Wine prefix does not exist. Run 'ips' first to create it."
+    exit 1
+fi
+
+IPS_DIR="$WINEPREFIX/drive_c/IPS"
+if [ ! -d "$IPS_DIR" ]; then
+    echo "❌ IPS directory not found. Run 'ips' first to extract IPS files."
+    exit 1
+fi
+
+echo "Looking for IPS configuration files..."
+CONFIG_FILES=$(find "$IPS_DIR" -name "*.ini" -o -name "*.config" -o -name "*.xml" 2>/dev/null)
+
+if [ -z "$CONFIG_FILES" ]; then
+    echo "❌ No configuration files found in IPS directory"
+    echo "IPS may use registry-based configuration or embedded settings"
+    echo ""
+    echo "Try these alternatives:"
+    echo "1. Run IPS and use its built-in database configuration"
+    echo "2. Check Windows registry for database settings"
+    echo "3. Look for IPS documentation about database setup"
+    exit 1
+fi
+
+echo "Found configuration files:"
+echo "$CONFIG_FILES" | nl
+
+echo ""
+echo "=== Configuration File Analysis ==="
+echo "$CONFIG_FILES" | while read -r config_file; do
+    if [ -f "$config_file" ]; then
+        echo "📄 Analyzing: $config_file"
+        
+        # Look for database-related settings
+        if grep -i "server\|database\|connection\|odbc" "$config_file" >/dev/null 2>&1; then
+            echo "   🔍 Database settings found:"
+            grep -i -n "server\|database\|connection\|odbc\|data.*source" "$config_file" | head -10 | while read -r line; do
+                echo "      $line"
+            done
+        else
+            echo "   ℹ️  No obvious database settings found"
+        fi
+        echo ""
+    fi
+done
+
+echo "=== Database Connection Examples ==="
+echo "Common database connection patterns:"
+echo ""
+echo "1. SQL Server with Windows Authentication:"
+echo "   Server=your-server-name\\INSTANCE"
+echo "   Database=IPS_Database"
+echo "   Trusted_Connection=yes"
+echo ""
+echo "2. SQL Server with SQL Authentication:"
+echo "   Server=your-server-name,1433"
+echo "   Database=IPS_Database"
+echo "   User ID=username"
+echo "   Password=password"
+echo ""
+echo "3. ODBC Data Source Name:"
+echo "   DSN=IPS_DataSource"
+echo ""
+echo "To edit configuration files manually:"
+echo "  nano \$CONFIG_FILE"
+echo "or"
+echo "  wine notepad C:\\\\path\\\\to\\\\config.ini"
+echo ""
+echo "After editing, restart IPS to test the connection."
+EOF
+      chmod +x $out/bin/ips-configure-database
       
       # Create comprehensive Wine diagnostics tool
       cat > $out/bin/ips-diagnose <<'EOF'

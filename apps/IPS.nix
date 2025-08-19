@@ -94,24 +94,34 @@ IPS_EXE=""
 
 echo "Looking for IPS executable in Wine C: drive: $WINE_IPS_DIR"
 
-# Look specifically for IPS.exe first (case variations)
-if [ -f "$WINE_IPS_DIR/IPS.exe" ]; then
+# Look specifically for IPS.exe first (case variations and subdirectories)
+if [ -f "$WINE_IPS_DIR/Bin/IPS.exe" ]; then
     IPS_EXE="C:\\IPS\\Bin\\IPS.exe"
+    echo "Found: $WINE_IPS_DIR/Bin/IPS.exe (Wine path: $IPS_EXE)"
+elif [ -f "$WINE_IPS_DIR/bin/IPS.exe" ]; then
+    IPS_EXE="C:\\IPS\\bin\\IPS.exe"
+    echo "Found: $WINE_IPS_DIR/bin/IPS.exe (Wine path: $IPS_EXE)"
+elif [ -f "$WINE_IPS_DIR/Bin/ips.exe" ]; then
+    IPS_EXE="C:\\IPS\\Bin\\ips.exe"
+    echo "Found: $WINE_IPS_DIR/Bin/ips.exe (Wine path: $IPS_EXE)"
+elif [ -f "$WINE_IPS_DIR/bin/ips.exe" ]; then
+    IPS_EXE="C:\\IPS\\bin\\ips.exe"
+    echo "Found: $WINE_IPS_DIR/bin/ips.exe (Wine path: $IPS_EXE)"
+elif [ -f "$WINE_IPS_DIR/IPS.exe" ]; then
+    IPS_EXE="C:\\IPS\\IPS.exe"
     echo "Found: $WINE_IPS_DIR/IPS.exe (Wine path: $IPS_EXE)"
 elif [ -f "$WINE_IPS_DIR/ips.exe" ]; then
-    IPS_EXE="C:\\IPS\\Bin\\ips.exe"
+    IPS_EXE="C:\\IPS\\ips.exe"
     echo "Found: $WINE_IPS_DIR/ips.exe (Wine path: $IPS_EXE)"
-elif [ -f "$WINE_IPS_DIR/Ips.exe" ]; then
-    IPS_EXE="C:\\IPS\\Bin\\Ips.exe"
-    echo "Found: $WINE_IPS_DIR/Ips.exe (Wine path: $IPS_EXE)"
 else
-    echo "Error: IPS.exe not found in $WINE_IPS_DIR"
-    echo "Available .exe files:"
+    echo "Error: IPS.exe not found in $WINE_IPS_DIR or subdirectories"
+    echo "Searching for all .exe files:"
     find "$WINE_IPS_DIR" -name "*.exe" -type f 2>/dev/null | while read exe_file; do
-        echo "  $(basename "$exe_file")"
+        rel_path=$(echo "$exe_file" | sed "s|$WINE_IPS_DIR/||")
+        echo "  $rel_path"
     done
     echo
-    echo "Please ensure IPS.exe is in the ZIP file, or update the script to use the correct executable name"
+    echo "Please ensure IPS.exe is in the ZIP file in the expected location"
     exit 1
 fi
 

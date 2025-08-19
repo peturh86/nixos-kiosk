@@ -87,50 +87,124 @@ done
 
 # Create Wine prefix if it doesn't exist
 if [ ! -d "$WINEPREFIX" ]; then
-    echo "Setting up fresh IPS Wine environment..."
-    echo "This may take a moment on first run..."
+    echo "=== Setting up fresh IPS Wine environment ==="
+    echo "This may take several minutes on first run..."
     
-    # Initialize Wine prefix
-    echo "Initializing Wine..."
-    wineboot --init
+    # Step 1: Initialize Wine prefix
+    echo "Step 1/6: Initializing Wine prefix..."
+    if ! wineboot --init; then
+        echo "ERROR: Failed to initialize Wine prefix"
+        exit 1
+    fi
+    echo "✓ Wine prefix initialized"
     
-    # Install common Windows components that might be needed
-    echo "Installing Windows components..."
+    # Step 2: Wait for Wine to fully settle
+    echo "Step 2/6: Waiting for Wine to settle..."
+    sleep 3
+    wineserver -w
+    echo "✓ Wine settled"
     
-    # Install basic components
-    winetricks -q corefonts vcrun2019 2>/dev/null || echo "Some basic components failed to install (this is often normal)"
+    # Step 3: Install core fonts (critical for most apps)
+    echo "Step 3/6: Installing core fonts..."
+    if winetricks -q corefonts; then
+        echo "✓ Core fonts installed"
+    else
+        echo "⚠ Core fonts installation failed (continuing anyway)"
+    fi
     
-    # Install ODBC components for database connectivity
-    echo "Installing ODBC components for database connectivity..."
-    winetricks -q odbc32 2>/dev/null || echo "ODBC32 installation attempted"
-    winetricks -q mdac28 2>/dev/null || echo "MDAC 2.8 installation attempted"
-    winetricks -q jet40 2>/dev/null || echo "Jet 4.0 installation attempted"
+    # Step 4: Install Visual C++ runtimes (try multiple versions)
+    echo "Step 4/6: Installing Visual C++ runtimes..."
+    for vcver in vcrun2015 vcrun2017 vcrun2019; do
+        echo "  Installing $vcver..."
+        if winetricks -q $vcver; then
+            echo "  ✓ $vcver installed"
+        else
+            echo "  ⚠ $vcver failed (continuing)"
+        fi
+    done
     
-    # Install additional .NET and database components that IPS might need
-    echo "Installing additional runtime components..."
-    winetricks -q dotnet48 2>/dev/null || echo ".NET 4.8 installation attempted"
-    winetricks -q vcrun2015 2>/dev/null || echo "VC++ 2015 installation attempted"
-    winetricks -q vcrun2019 2>/dev/null || echo "VC++ 2019 installation attempted"
+    # Step 5: Install .NET frameworks (in order)
+    echo "Step 5/6: Installing .NET frameworks..."
+    for dotnet in dotnet35 dotnet40 dotnet48; do
+        echo "  Installing $dotnet..."
+        if timeout 300 winetricks -q $dotnet; then
+            echo "  ✓ $dotnet installed"
+        else
+            echo "  ⚠ $dotnet failed or timed out (continuing)"
+        fi
+        # Wait between .NET installations
+        sleep 2
+        wineserver -w
+    done
     
-    # Install additional .NET components
-    echo "Installing .NET Framework components..."
-    winetricks -q dotnet35 2>/dev/null || echo ".NET 3.5 installation attempted"
-    winetricks -q dotnet40 2>/dev/null || echo ".NET 4.0 installation attempted"
+    # Step 6: Install database components
+    echo "Step 6/6: Installing database components..."
+    for dbcomp in odbc32 mdac28 jet40; do
+        echo "  Installing $dbcomp..."
+        if winetricks -q $dbcomp; then
+            echo "  ✓ $dbcomp installed"
+        else
+            echo "  ⚠ $dbcomp failed (continuing)"
+        fi
+    done
     
-    echo "Wine component installation complete"
+    echo "=== Wine component installation summary ==="
+    # Show what's actually installed
+    echo "Installed Windows versions:"
+    wine --version
+    echo "Wine prefix contents:"
+    ls -la "$WINEPREFIX/drive_c/" | head -10
     
     # Copy IPS files to Wine's C: drive
     WINE_C_DRIVE="$WINEPREFIX/drive_c"
     WINE_IPS_DIR="$WINE_C_DRIVE/IPS"
     
-    echo "Copying IPS files to Wine C: drive..."
+    echo "=== Copying IPS files to Wine C: drive ==="
     mkdir -p "$WINE_IPS_DIR"
-    cp -r "${placeholder "out"}/share/ips/"* "$WINE_IPS_DIR/"
-    echo "IPS files copied to: $WINE_IPS_DIR"
     
-    # Create a marker file with the package info
-    echo "IPS Package: ${placeholder "out"}" > "$WINE_IPS_DIR/.nix-package-info"
-    echo "Created: $(date)" >> "$WINE_IPS_DIR/.nix-package-info"
+    # Show what we're copying
+    echo "Source files:"
+    ls -la "${placeholder "out"}/share/ips"
+    
+    if cp -r "${placeholder "out"}/share/ips/"* "$WINE_IPS_DIR/"; then
+        echo "✓ IPS files copied successfully"
+    else
+        echo "ERROR: Failed to copy IPS files"
+        exit 1
+    fi
+    
+    echo "Copied files:"
+    ls -la "$WINE_IPS_DIR"
+    
+    # Create a detailed installation log
+    cat > "$WINE_IPS_DIR/.nix-installation-log" <<LOGEOF
+IPS Wine Environment Setup Log
+=============================
+Date: $(date)
+IPS Package: ${placeholder "out"}
+Wine Version: $(wine --version)
+Wine Prefix: $WINEPREFIX
+
+Components Attempted:
+- Core Fonts: $(winetricks list-installed | grep corefonts >/dev/null && echo "✓ Installed" || echo "✗ Failed")
+- VC++ 2015: $(winetricks list-installed | grep vcrun2015 >/dev/null && echo "✓ Installed" || echo "✗ Failed")
+- VC++ 2019: $(winetricks list-installed | grep vcrun2019 >/dev/null && echo "✓ Installed" || echo "✗ Failed")
+- .NET 3.5: $(winetricks list-installed | grep dotnet35 >/dev/null && echo "✓ Installed" || echo "✗ Failed")
+- .NET 4.8: $(winetricks list-installed | grep dotnet48 >/dev/null && echo "✓ Installed" || echo "✗ Failed")
+- ODBC: $(winetricks list-installed | grep odbc32 >/dev/null && echo "✓ Installed" || echo "✗ Failed")
+
+IPS Files:
+$(find "$WINE_IPS_DIR" -type f | head -20)
+
+DLL Files Found:
+$(find "$WINE_IPS_DIR" -name "*.dll" -type f | head -10)
+
+EXE Files Found:
+$(find "$WINE_IPS_DIR" -name "*.exe" -type f)
+LOGEOF
+    
+    echo "✓ Installation log created at $WINE_IPS_DIR/.nix-installation-log"
+    echo "=== Wine environment setup complete ==="
 else
     echo "Using existing Wine environment (same IPS version)"
 fi
@@ -346,6 +420,105 @@ echo "  wine regedit"
 echo "Navigate to: HKEY_LOCAL_MACHINE\\SOFTWARE\\ODBC\\ODBCINST.INI"
 EOF
       chmod +x $out/bin/ips-configure-odbc
+      
+      # Create comprehensive Wine diagnostics tool
+      cat > $out/bin/ips-diagnose <<'EOF'
+#!/bin/sh
+echo "=== IPS Wine Environment Diagnostics ==="
+
+# Calculate the same hash as the launcher
+IPS_HASH=$(echo "${placeholder "out"}" | sha256sum | cut -d' ' -f1 | head -c16)
+CURRENT_WINEPREFIX="$HOME/.wine-ips-$IPS_HASH"
+
+if [ ! -d "$CURRENT_WINEPREFIX" ]; then
+    echo "❌ Wine prefix not found. Run 'ips' first to create it."
+    exit 1
+fi
+
+export WINEPREFIX="$CURRENT_WINEPREFIX"
+export WINEARCH=win32
+
+echo "Wine Environment:"
+echo "  Prefix: $WINEPREFIX"
+echo "  Architecture: $WINEARCH"
+echo "  Wine Version: $(wine --version)"
+echo
+
+echo "=== Installation Log ==="
+if [ -f "$WINEPREFIX/drive_c/IPS/.nix-installation-log" ]; then
+    cat "$WINEPREFIX/drive_c/IPS/.nix-installation-log"
+else
+    echo "❌ No installation log found"
+fi
+echo
+
+echo "=== Winetricks Components Check ==="
+echo "Installed components:"
+winetricks list-installed 2>/dev/null || echo "Could not list installed components"
+echo
+
+echo "=== IPS Files Structure ==="
+if [ -d "$WINEPREFIX/drive_c/IPS" ]; then
+    echo "IPS directory exists ✓"
+    echo "Contents:"
+    find "$WINEPREFIX/drive_c/IPS" -type f | head -20
+    echo
+    echo "DLL files:"
+    find "$WINEPREFIX/drive_c/IPS" -name "*.dll" | head -10
+    echo
+    echo "EXE files:"
+    find "$WINEPREFIX/drive_c/IPS" -name "*.exe"
+else
+    echo "❌ IPS directory not found at $WINEPREFIX/drive_c/IPS"
+fi
+echo
+
+echo "=== Wine Registry Check ==="
+echo "Checking .NET installation in registry..."
+wine regedit /E /tmp/dotnet_check.reg "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\NET Framework Setup\\NDP" 2>/dev/null
+if [ -f /tmp/dotnet_check.reg ]; then
+    echo "✓ .NET registry entries found"
+    grep -i "version" /tmp/dotnet_check.reg | head -5
+    rm -f /tmp/dotnet_check.reg
+else
+    echo "⚠ Could not check .NET registry"
+fi
+echo
+
+echo "=== ODBC Configuration ==="
+echo "ODBC drivers:"
+wine odbcconf /q /A {REGSVR} 2>/dev/null || echo "ODBC check failed"
+echo
+
+echo "=== Wine Process Check ==="
+echo "Running Wine processes:"
+ps aux | grep wine | grep -v grep || echo "No Wine processes running"
+echo
+
+echo "=== Test Wine DLL Loading ==="
+echo "Testing basic Wine functionality..."
+if wine cmd /c "echo Wine command test" 2>/dev/null | grep -q "Wine command test"; then
+    echo "✓ Wine command execution works"
+else
+    echo "❌ Wine command execution failed"
+fi
+
+echo
+echo "=== Recommendations ==="
+if ! winetricks list-installed | grep -q dotnet; then
+    echo "⚠ No .NET framework detected - may cause DLL loading issues"
+fi
+if ! winetricks list-installed | grep -q vcrun; then
+    echo "⚠ No Visual C++ runtime detected - may cause DLL loading issues"
+fi
+if [ ! -f "$WINEPREFIX/drive_c/IPS/Bin/IPS.exe" ]; then
+    echo "❌ IPS.exe not found at expected location"
+fi
+
+echo
+echo "To force a fresh Wine environment: ips-uninstall && ips"
+EOF
+      chmod +x $out/bin/ips-diagnose
       
       # Create uninstaller
       cat > $out/bin/ips-uninstall <<'EOF'

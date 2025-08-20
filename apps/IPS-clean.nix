@@ -1,14 +1,18 @@
-# Clean IPS application with modular components
+# Clean IPS application with NAS-based installer
 { config, pkgs, ... }:
 
 let
   ipsApp = import ./ips-simple.nix { inherit pkgs; };
   dbTools = import ./database-tools.nix { inherit pkgs; };
+  serialTools = import ./serial-tools.nix { inherit pkgs; };
 in
 {
   # Install main IPS application for all users
   environment.systemPackages = [
     ipsApp.ips
+    # Add serial port diagnostic tools
+    serialTools.check-serial
+    serialTools.test-com
   ];
   
   # Optional: Add database tools to system packages if needed for debugging

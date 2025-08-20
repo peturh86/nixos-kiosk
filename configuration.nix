@@ -3,6 +3,7 @@
 {
   imports = [
     ./hardware-configuration.nix
+    ./nas-setup.nix
     ./apps.nix
 
     ./configurations/system.nix

@@ -4,6 +4,9 @@
   boot.loader.grub.device = "/dev/sda";
   boot.loader.grub.useOSProber = true;
 
+  # Kernel modules for serial/USB devices (scales, etc.)
+  boot.kernelModules = [ "usbserial" "ftdi_sio" "pl2303" "cp210x" ];
+
   networking.hostName = "nixos";
   networking.networkmanager.enable = true;
 
@@ -23,4 +26,7 @@
   };
 
   console.keyMap = "is-latin1";
+  
+  # Services for serial device support
+  services.udev.enable = true;
 }

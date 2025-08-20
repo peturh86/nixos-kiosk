@@ -43,7 +43,7 @@
         exit 1
       fi
       
-      if [ ${#NEW_HOSTNAME} -gt 63 ]; then
+      if [ ''${#NEW_HOSTNAME} -gt 63 ]; then
         echo "❌ Hostname too long (max 63 characters)."
         exit 1
       fi
@@ -55,10 +55,10 @@
       
       # Immediate hostname change (temporary until reboot)
       echo "Setting runtime hostname..."
-      sudo hostnamectl set-hostname "$NEW_HOSTNAME" || {
+      if ! sudo hostnamectl set-hostname "$NEW_HOSTNAME"; then
         echo "❌ Failed to set hostname. Do you have sudo privileges?"
         exit 1
-      }
+      fi
       
       # Update /etc/hosts to prevent DNS issues
       echo "Updating /etc/hosts..."
@@ -106,7 +106,7 @@
       echo ""
       echo "Current status:"
       echo "  System hostname: $(hostname)"
-      echo "  Wine hostname: ${WINE_HOSTNAME:-N/A}"
+      echo "  Wine hostname: ''${WINE_HOSTNAME:-N/A}"
       echo ""
       echo "💡 Next steps:"
       echo "  • Test IPS: ips"
@@ -277,7 +277,7 @@
       
       # Disk usage
       echo "Storage:"
-      df -h / | tail -1 | awk '{print "  Root: " $3 "/" $2 " (" $5 " used)"}'
+      df -h / | tail -1 | awk ''{print "  Root: " $3 "/" $2 " (" $5 " used)"}''
       echo ""
       
       echo "💡 Management commands:"

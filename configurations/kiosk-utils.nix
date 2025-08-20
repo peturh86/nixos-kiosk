@@ -7,39 +7,18 @@
     # Desktop overlay tool
     pkgs.conky
     
-    # Hostname management for Wine applications
-    (pkgs.writeShellScriptBin "set-wine-hostname" ''
+    # NixOS System Hostname Manager (replaces Wine-specific approach)
+    (pkgs.writeShellScriptBin "set-system-hostname" ''
       #!/bin/bash
       
-      echo "🖥️  Kiosk Wine Hostname Manager"
-      echo "This tool sets the hostname that Wine applications will see"
-      echo ""
-      
-      # Find any Wine prefix (not just IPS)
-      WINE_PREFIX=""
-      for prefix in $HOME/.wine-* $HOME/.wine; do
-        if [ -d "$prefix" ]; then
-          WINE_PREFIX="$prefix"
-          break
-        fi
-      done
-      
-      if [ -z "$WINE_PREFIX" ]; then
-        echo "❌ No Wine prefix found. Run a Wine application first to create one."
-        echo "   Try: wine notepad"
-        exit 1
-      fi
-      
-      export WINEPREFIX="$WINE_PREFIX"
-      export PATH="${pkgs.wineWowPackages.stable}/bin:$PATH"
-      
-      echo "Wine prefix: $WINEPREFIX"
+      echo "🖥️  NixOS System Hostname Manager"
+      echo "This changes the actual system hostname (which Wine inherits)"
       echo ""
       
       # Show current hostname
-      echo "Current hostname in Wine:"
-      CURRENT_HOSTNAME=$(wine hostname 2>/dev/null || echo "unknown")
-      echo "  → $CURRENT_HOSTNAME"
+      echo "Current system hostname: $(hostname)"
+      echo "Current hosts file entries:"
+      grep -E "127\.0\.0\.1|::1" /etc/hosts | head -3
       echo ""
       
       # Get new hostname from user
@@ -47,8 +26,8 @@
         NEW_HOSTNAME="$1"
         echo "Setting hostname to: $NEW_HOSTNAME"
       else
-        echo "Enter new hostname for Wine applications:"
-        echo "(This will be visible to IPS, SAP, and other Windows apps)"
+        echo "Enter new system hostname:"
+        echo "(This will be visible to all applications including IPS)"
         echo ""
         read -p "Hostname: " NEW_HOSTNAME
         
@@ -58,93 +37,101 @@
         fi
       fi
       
-      # Validate hostname (basic check)
+      # Validate hostname
       if [[ ! "$NEW_HOSTNAME" =~ ^[a-zA-Z0-9-]+$ ]]; then
         echo "❌ Invalid hostname. Use only letters, numbers, and hyphens."
         exit 1
       fi
       
-      echo ""
-      echo "🔧 Setting Wine hostname to: $NEW_HOSTNAME"
-      
-      # First, stop Wine server to ensure clean state
-      echo "Stopping Wine server..."
-      wineserver -k 2>/dev/null || true
-      sleep 1
-      
-      # Set the hostname in Wine registry (multiple approaches)
-      echo "Setting registry keys..."
-      
-      # Method 1: Computer name keys
-      wine reg add "HKLM\\SYSTEM\\CurrentControlSet\\Control\\ComputerName\\ActiveComputerName" /v "ComputerName" /t REG_SZ /d "$NEW_HOSTNAME" /f 2>/dev/null
-      wine reg add "HKLM\\SYSTEM\\CurrentControlSet\\Control\\ComputerName\\ComputerName" /v "ComputerName" /t REG_SZ /d "$NEW_HOSTNAME" /f 2>/dev/null
-      
-      # Method 2: TCP/IP Parameters
-      wine reg add "HKLM\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters" /v "Hostname" /t REG_SZ /d "$NEW_HOSTNAME" /f 2>/dev/null
-      wine reg add "HKLM\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters" /v "NV Hostname" /t REG_SZ /d "$NEW_HOSTNAME" /f 2>/dev/null
-      
-      # Method 3: Environment variable approach (this often works better)
-      wine reg add "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment" /v "COMPUTERNAME" /t REG_SZ /d "$NEW_HOSTNAME" /f 2>/dev/null
-      wine reg add "HKCU\\Environment" /v "COMPUTERNAME" /t REG_SZ /d "$NEW_HOSTNAME" /f 2>/dev/null
-      
-      # Method 4: Set in Wine's system.reg directly (more direct approach)
-      echo "Updating Wine configuration..."
-      
-      # Stop Wine server again to ensure changes take effect
-      wineserver -k 2>/dev/null || true
-      sleep 2
-      
-      echo "✅ Hostname set in Wine registry"
-      echo ""
-      
-      # Verify the change
-      echo "Verifying new hostname:"
-      sleep 1
-      NEW_CHECK=$(wine hostname 2>/dev/null || echo "unknown")
-      echo "  → $NEW_CHECK"
-      
-      if [ "$NEW_CHECK" = "$NEW_HOSTNAME" ]; then
-        echo "✅ Success! Wine hostname is now: $NEW_HOSTNAME"
-        echo ""
-        echo "This hostname will be visible to:"
-        echo "  • IPS application"
-        echo "  • SAP client"
-        echo "  • Any other Wine applications"
-      else
-        echo "⚠️  Standard method didn't work. Trying alternative approach..."
-        echo ""
-        
-        # Alternative: Use WINEHOST environment variable
-        echo "Setting up Wine environment variable override..."
-        
-        # Create a wrapper script that sets WINEHOST
-        WINE_WRAPPER="$HOME/.wine-hostname-wrapper"
-        cat > "$WINE_WRAPPER" << WRAPPER_EOF
-#!/bin/bash
-export WINEHOST="$NEW_HOSTNAME"
-export COMPUTERNAME="$NEW_HOSTNAME"
-export WINEPREFIX="$WINEPREFIX"
-export PATH="${pkgs.wineWowPackages.stable}/bin:\$PATH"
-exec "\$@"
-WRAPPER_EOF
-        chmod +x "$WINE_WRAPPER"
-        
-        echo "Created Wine wrapper at: $WINE_WRAPPER"
-        echo ""
-        echo "⚡ Alternative solution:"
-        echo "For applications that need the custom hostname, use:"
-        echo "  $WINE_WRAPPER wine your-application.exe"
-        echo ""
-        echo "Or set environment variables manually:"
-        echo "  export WINEHOST=$NEW_HOSTNAME"
-        echo "  export COMPUTERNAME=$NEW_HOSTNAME"
-        echo "  wine your-application.exe"
+      if [ ${#NEW_HOSTNAME} -gt 63 ]; then
+        echo "❌ Hostname too long (max 63 characters)."
+        exit 1
       fi
       
       echo ""
+      echo "⚠️  WARNING: This will temporarily affect network connectivity!"
+      echo "🔧 Changing system hostname to: $NEW_HOSTNAME"
+      echo ""
+      
+      # Immediate hostname change (temporary until reboot)
+      echo "Setting runtime hostname..."
+      sudo hostnamectl set-hostname "$NEW_HOSTNAME" || {
+        echo "❌ Failed to set hostname. Do you have sudo privileges?"
+        exit 1
+      }
+      
+      # Update /etc/hosts to prevent DNS issues
+      echo "Updating /etc/hosts..."
+      sudo sed -i.backup "s/127\.0\.0\.1.*/127.0.0.1 localhost $NEW_HOSTNAME/" /etc/hosts
+      sudo sed -i "s/::1.*/::1 localhost $NEW_HOSTNAME ip6-localhost ip6-loopback/" /etc/hosts
+      
+      echo "✅ System hostname changed to: $NEW_HOSTNAME"
+      echo ""
+      
+      # Restart Wine to pick up new hostname
+      echo "🍷 Restarting Wine subsystem..."
+      # Find and restart all Wine prefixes
+      for prefix in $HOME/.wine-* $HOME/.wine; do
+        if [ -d "$prefix" ]; then
+          echo "  Restarting Wine prefix: $(basename $prefix)"
+          export WINEPREFIX="$prefix"
+          wineserver -k 2>/dev/null || true
+        fi
+      done
+      
+      sleep 2
+      echo "✅ Wine subsystem restarted"
+      echo ""
+      
+      # Test Wine hostname
+      echo "Testing Wine hostname:"
+      WINE_PREFIX=$(ls -d $HOME/.wine-ips-* 2>/dev/null | head -1)
+      if [ -n "$WINE_PREFIX" ]; then
+        export WINEPREFIX="$WINE_PREFIX"
+        export PATH="${pkgs.wineWowPackages.stable}/bin:$PATH"
+        WINE_HOSTNAME=$(wine hostname 2>/dev/null || echo "unknown")
+        echo "  Wine hostname: $WINE_HOSTNAME"
+        
+        if [ "$WINE_HOSTNAME" = "$NEW_HOSTNAME" ]; then
+          echo "  ✅ Wine picked up new hostname!"
+        else
+          echo "  ⚠️  Wine still shows old hostname. Wine server may need more time."
+        fi
+      else
+        echo "  No Wine prefix found to test"
+      fi
+      
+      echo ""
+      echo "🎯 Hostname change completed!"
+      echo ""
+      echo "Current status:"
+      echo "  System hostname: $(hostname)"
+      echo "  Wine hostname: ${WINE_HOSTNAME:-N/A}"
+      echo ""
       echo "💡 Next steps:"
-      echo "  • For automatic hostname from hardware: set-hostname-from-serial"
-      echo "  • For database-based hostname: set-hostname-from-db"
+      echo "  • Test IPS: ips"
+      echo "  • Check system status: kiosk-status"
+      echo "  • For permanent hostname: update NixOS configuration"
+      echo ""
+      echo "⚠️  Note: For permanent hostname changes across reboots,"
+      echo "   update networking.hostName in your NixOS configuration"
+    '')
+
+    # Legacy Wine hostname tool (now recommends system hostname approach)
+    (pkgs.writeShellScriptBin "set-wine-hostname" ''
+      #!/bin/bash
+      echo "⚠️  DEPRECATED: Use 'set-system-hostname' instead"
+      echo ""
+      echo "Wine inherits the system hostname, so it's better to change"
+      echo "the actual NixOS hostname rather than fighting with Wine registry."
+      echo ""
+      if [ -n "$1" ]; then
+        echo "Running: set-system-hostname $1"
+        exec set-system-hostname "$1"
+      else
+        echo "Running: set-system-hostname (interactive)"
+        exec set-system-hostname
+      fi
     '')
 
     # Future: Hostname from hardware serial number
@@ -168,8 +155,8 @@ WRAPPER_EOF
       echo "Generated hostname: $HOSTNAME"
       echo ""
       
-      # Call the main hostname setter
-      exec set-wine-hostname "$HOSTNAME"
+      # Call the system hostname setter
+      exec set-system-hostname "$HOSTNAME"
     '')
 
     # Future: Hostname from database lookup
@@ -294,7 +281,8 @@ WRAPPER_EOF
       echo ""
       
       echo "💡 Management commands:"
-      echo "  set-wine-hostname     - Set hostname for Wine apps"
+      echo "  set-system-hostname   - Change system hostname (recommended)"
+      echo "  set-wine-hostname     - Legacy Wine hostname (deprecated)"
       echo "  set-hostname-from-serial - Auto hostname from hardware"
       echo "  wine-env             - Start Wine environment shell"
     '')

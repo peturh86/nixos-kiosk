@@ -13,6 +13,7 @@
     ./configurations/programs.nix
     ./configurations/nixpkgs.nix
     ./configurations/power.nix
+    ./configurations/kiosk-utils.nix
 
     ./modules/ui/xserver-openbox.nix
     ./modules/ui/dm-lightdm.nix

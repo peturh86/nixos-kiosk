@@ -77,6 +77,13 @@
       echo "✅ Hostname set in Wine registry"
       echo ""
       
+      # Restart Wine server to apply changes
+      echo "🔄 Restarting Wine server to apply hostname change..."
+      wineserver -k 2>/dev/null || true
+      sleep 2
+      echo "✅ Wine server restarted"
+      echo ""
+      
       # Verify the change
       echo "Verifying new hostname:"
       sleep 1
@@ -141,6 +148,51 @@
       echo "  3. Set Wine hostname automatically"
       echo ""
       echo "For now, use: set-wine-hostname HOSTNAME"
+    '')
+
+    # Wine server restart utility
+    (pkgs.writeShellScriptBin "restart-wine" ''
+      #!/bin/bash
+      echo "🔄 Restarting Wine subsystem..."
+      echo ""
+      
+      # Find Wine prefix
+      WINE_PREFIX=""
+      for prefix in $HOME/.wine-* $HOME/.wine; do
+        if [ -d "$prefix" ]; then
+          WINE_PREFIX="$prefix"
+          echo "Found Wine prefix: $(basename $prefix)"
+          break
+        fi
+      done
+      
+      if [ -z "$WINE_PREFIX" ]; then
+        echo "❌ No Wine prefix found. Nothing to restart."
+        exit 1
+      fi
+      
+      export WINEPREFIX="$WINE_PREFIX"
+      export PATH="${pkgs.wineWowPackages.stable}/bin:$PATH"
+      
+      # Kill Wine server
+      echo "Stopping Wine server..."
+      wineserver -k 2>/dev/null || true
+      
+      # Wait a moment
+      sleep 2
+      
+      # Verify it's stopped
+      if pgrep -f wineserver > /dev/null; then
+        echo "⚠️  Wine server still running, force killing..."
+        pkill -9 -f wineserver 2>/dev/null || true
+        sleep 1
+      fi
+      
+      echo "✅ Wine server stopped"
+      echo ""
+      echo "Wine subsystem restarted. Next Wine command will start fresh server."
+      echo ""
+      echo "💡 Test with: wine hostname"
     '')
 
     # Kiosk status checker

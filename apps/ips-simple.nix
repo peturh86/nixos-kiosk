@@ -15,7 +15,7 @@ in
 
     # NAS configuration
     NAS_SHARE="/mnt/nas-share"
-    IPS_INSTALLER="$NAS_SHARE/ipssetup.zip"
+    IPS_INSTALLER="$NAS_SHARE/nixos/ipssetup.exe"
 
     # Check NAS accessibility
     if [ ! -d "$NAS_SHARE" ]; then

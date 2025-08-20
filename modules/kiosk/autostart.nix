@@ -17,6 +17,9 @@ in
         "echo \"$(date): Openbox autostart executed\" >> /tmp/openbox-autostart.log"
         "${pkgs.xorg.xsetroot}/bin/xsetroot -solid '#2a2a2a'"
         "echo \"$(date): Background set\" >> /tmp/openbox-autostart.log"
+        # Start system info overlay
+        "start-system-info-overlay &"
+        "echo \"$(date): System info overlay started\" >> /tmp/openbox-autostart.log"
       ] ++ (map (l: l) (lib.unique config.kiosk.autostart.lines)) ++ [
         "echo \"$(date): All autostart commands processed\" >> /tmp/openbox-autostart.log"
       ]

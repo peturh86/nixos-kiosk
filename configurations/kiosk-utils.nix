@@ -4,6 +4,9 @@
 
 {
   environment.systemPackages = [
+    # Desktop overlay tool
+    pkgs.conky
+    
     # Hostname management for Wine applications
     (pkgs.writeShellScriptBin "set-wine-hostname" ''
       #!/bin/bash
@@ -205,6 +208,151 @@
       echo "  set-wine-hostname     - Set hostname for Wine apps"
       echo "  set-hostname-from-serial - Auto hostname from hardware"
       echo "  wine-env             - Start Wine environment shell"
+    '')
+
+    # Desktop system info overlay
+    (pkgs.writeShellScriptBin "show-system-info-overlay" ''
+      #!/bin/bash
+      
+      # Kill any existing overlay
+      pkill -f "system-info-overlay" 2>/dev/null || true
+      
+      # Create system info display
+      while true; do
+        # Get system information
+        HOSTNAME=$(hostname)
+        NIXOS_VERSION=$(nixos-version | cut -d' ' -f1-2)
+        
+        # Get serial number (try multiple sources)
+        SERIAL=$(cat /sys/class/dmi/id/product_serial 2>/dev/null || cat /sys/class/dmi/id/board_serial 2>/dev/null || echo "unknown")
+        if [ "$SERIAL" = "unknown" ] || [ -z "$SERIAL" ]; then
+          # Fallback to MAC address
+          SERIAL=$(ip link show | grep -o 'link/ether [^[:space:]]*' | head -1 | cut -d' ' -f2 | tr -d ':' | tr '[:lower:]' '[:upper:]' | cut -c7-12)
+          SERIAL="MAC-$SERIAL"
+        fi
+        
+        # Get primary IP address
+        IP_ADDR=$(ip route get 1.1.1.1 2>/dev/null | grep -oP 'src \K\S+' || echo "no-network")
+        
+        # Get Wine hostname if available
+        WINE_HOSTNAME="N/A"
+        WINE_PREFIX=$(ls -d $HOME/.wine-ips-* 2>/dev/null | head -1)
+        if [ -n "$WINE_PREFIX" ] && command -v wine &> /dev/null; then
+          export WINEPREFIX="$WINE_PREFIX"
+          export PATH="${pkgs.wineWowPackages.stable}/bin:$PATH"
+          WINE_HOSTNAME=$(wine hostname 2>/dev/null || echo "N/A")
+        fi
+        
+        # Get uptime
+        UPTIME=$(uptime -p | sed 's/up //')
+        
+        # Current timestamp
+        TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
+        
+        # Create info text
+        INFO_TEXT="$HOSTNAME | $SERIAL | $IP_ADDR
+Wine: $WINE_HOSTNAME | $NIXOS_VERSION
+Up: $UPTIME | $TIMESTAMP"
+        
+        # Display using conky (if available) or fallback to xterm
+        if command -v conky &> /dev/null; then
+          # Create temporary conky config
+          CONKY_CONFIG="/tmp/system-info-conky.conf"
+          cat > "$CONKY_CONFIG" << EOF
+conky.config = {
+    alignment = 'top_right',
+    gap_x = 20,
+    gap_y = 20,
+    minimum_height = 5,
+    minimum_width = 5,
+    net_avg_samples = 2,
+    no_buffers = true,
+    out_to_console = false,
+    out_to_ncurses = false,
+    out_to_stderr = false,
+    out_to_x = true,
+    own_window = true,
+    own_window_class = 'Conky',
+    own_window_type = 'override',
+    own_window_transparent = true,
+    own_window_hints = 'undecorated,below,sticky,skip_taskbar,skip_pager',
+    own_window_colour = 'black',
+    own_window_argb_visual = true,
+    own_window_argb_value = 0,
+    update_interval = 30.0,
+    uppercase = false,
+    use_spacer = 'none',
+    show_graph_scale = false,
+    show_graph_range = false,
+    double_buffer = true,
+    font = 'DejaVu Sans Mono:size=10',
+    default_color = 'white',
+    default_outline_color = 'black',
+    default_shade_color = 'black',
+    draw_borders = false,
+    draw_graph_borders = true,
+    draw_outline = true,
+    draw_shades = false,
+    use_xft = true,
+}
+
+conky.text = [[
+\''${color white}\''${font DejaVu Sans Mono:bold:size=9}$HOSTNAME\''${font} | $SERIAL | $IP_ADDR
+Wine: $WINE_HOSTNAME | $NIXOS_VERSION  
+Up: $UPTIME
+\''${color grey}\''${font DejaVu Sans Mono:size=8}$TIMESTAMP\''${font}
+]]
+EOF
+          
+          conky -c "$CONKY_CONFIG" &
+          CONKY_PID=$!
+          
+          # Wait 30 seconds, then restart to refresh info
+          sleep 30
+          kill $CONKY_PID 2>/dev/null || true
+          
+        else
+          # Fallback: use xterm overlay (less elegant but works)
+          echo "$INFO_TEXT" | ${pkgs.xterm}/bin/xterm -geometry 50x4+$(($(${pkgs.xorg.xrandr}/bin/xrandr | grep 'primary' | grep -o '[0-9]*x[0-9]*' | cut -d'x' -f1) - 400))+20 -title "System Info" -fg white -bg black -fn "fixed" -e "cat; sleep 30" &
+          sleep 30
+        fi
+        
+      done
+    '')
+
+    # Start system info overlay at login
+    (pkgs.writeShellScriptBin "start-system-info-overlay" ''
+      #!/bin/bash
+      
+      # Wait a bit for desktop to load
+      sleep 3
+      
+      # Start the overlay in background
+      show-system-info-overlay &
+      
+      # Mark as system info process for easy identification
+      echo $! > /tmp/system-info-overlay.pid
+    '')
+
+    # Stop system info overlay
+    (pkgs.writeShellScriptBin "stop-system-info-overlay" ''
+      #!/bin/bash
+      
+      echo "Stopping system info overlay..."
+      
+      # Kill by process name
+      pkill -f "show-system-info-overlay" 2>/dev/null || true
+      pkill -f "system-info-conky" 2>/dev/null || true
+      pkill -f "conky.*system-info" 2>/dev/null || true
+      
+      # Kill by PID file
+      if [ -f /tmp/system-info-overlay.pid ]; then
+        PID=$(cat /tmp/system-info-overlay.pid)
+        kill $PID 2>/dev/null || true
+        rm /tmp/system-info-overlay.pid
+      fi
+      
+      echo "System info overlay stopped"
     '')
   ];
 }

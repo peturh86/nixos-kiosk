@@ -6,8 +6,11 @@ let
 in
 {
   ips = pkgs.writeShellScriptBin "ips" ''
-    # IPS Application Launcher - Installer from NAS approach
+    # IPS Application Launcher - Direct installer from NAS
 
+    # Add Wine to PATH
+    export PATH="${pkgs.wineWowPackages.stable}/bin:${pkgs.winetricks}/bin:$PATH"
+    
     # Wine environment (32-bit required for MDAC28)
     export WINEPREFIX="$HOME/.wine-ips-${wineBase.wine_hash}"
     export WINEARCH=win32
@@ -26,7 +29,8 @@ in
 
     if [ ! -f "$IPS_INSTALLER" ]; then
         echo "❌ IPS installer not found at $IPS_INSTALLER"
-        echo "Please ensure ipssetup.zip is available on the NAS"
+        echo "Available files in NAS nixos folder:"
+        ls -la "$NAS_SHARE/nixos/" 2>/dev/null || echo "Cannot list NAS contents"
         exit 1
     fi
 
@@ -37,13 +41,13 @@ in
         
         echo "Installing required components (Ubuntu-tested sequence):"
         echo "1. Core fonts..."
-        ${pkgs.winetricks}/bin/winetricks -q corefonts
+        winetricks -q corefonts
         
         echo "2. .NET Framework 4.8..."
-        ${pkgs.winetricks}/bin/winetricks -q dotnet48
+        winetricks -q dotnet48
         
         echo "3. MDAC28 (database components)..."
-        ${pkgs.winetricks}/bin/winetricks -q mdac28
+        winetricks -q mdac28
         
         echo "Wine environment ready"
     fi
@@ -52,36 +56,19 @@ in
     IPS_INSTALLED=$(find "$WINEPREFIX/drive_c" -name "IPS.exe" -type f 2>/dev/null | head -1)
 
     if [ -z "$IPS_INSTALLED" ]; then
-        echo "IPS not found - extracting and running installer from NAS..."
+        echo "IPS not found - running installer directly from NAS..."
         
-        # Create temporary directory for extraction
-        TEMP_DIR=$(mktemp -d)
-        trap "rm -rf $TEMP_DIR" EXIT
-        
-        echo "Extracting installer from NAS: $IPS_INSTALLER"
-        ${pkgs.unzip}/bin/unzip -q "$IPS_INSTALLER" -d "$TEMP_DIR" || {
-            echo "Failed to extract ipssetup.zip from NAS"
-            exit 1
-        }
-        
-        # Find installer in extracted files
-        INSTALLER=$(find "$TEMP_DIR" -name "*.exe" -o -name "setup.exe" -o -name "install.exe" | head -1)
-        if [ -z "$INSTALLER" ]; then
-            echo "Error: No installer (.exe) found in ipssetup.zip"
-            echo "Available files:"
-            find "$TEMP_DIR" -type f | head -10
-            exit 1
-        fi
-        
-        echo "Running IPS installer: $(basename $INSTALLER)"
+        echo "Running IPS installer: $IPS_INSTALLER"
         echo "Follow the installation prompts..."
-        wine "$INSTALLER"
+        wine "$IPS_INSTALLER"
         
         # Check if installation succeeded
         IPS_INSTALLED=$(find "$WINEPREFIX/drive_c" -name "IPS.exe" -type f 2>/dev/null | head -1)
         if [ -z "$IPS_INSTALLED" ]; then
             echo "Installation may have failed - IPS.exe not found"
             echo "Please check the installation manually"
+            echo "Looking for any .exe files that might be IPS:"
+            find "$WINEPREFIX/drive_c" -name "*.exe" -type f | grep -i ips || echo "No IPS-related executables found"
             exit 1
         fi
         

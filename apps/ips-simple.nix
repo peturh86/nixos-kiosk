@@ -75,10 +75,42 @@ in
         echo "✓ IPS installation completed"
     fi
 
-    # Run IPS from installed location
-    echo "Starting IPS from: $IPS_INSTALLED"
+    # Debug information before running IPS
+    echo "=== IPS Debug Information ==="
+    echo "IPS executable found at: $IPS_INSTALLED"
+    echo "Linux path: $IPS_INSTALLED"
+    echo "Wine prefix: $WINEPREFIX"
+    
+    # Convert to Windows path for Wine
+    IPS_WINE_PATH=$(echo "$IPS_INSTALLED" | sed "s|$WINEPREFIX/drive_c|C:|" | sed 's|/|\\|g')
+    echo "Wine path: $IPS_WINE_PATH"
+    
+    # Check DLL dependencies
     IPS_DIR=$(dirname "$IPS_INSTALLED")
+    echo "IPS directory: $IPS_DIR"
+    echo "DLL files in IPS directory:"
+    find "$IPS_DIR" -name "*.dll" | head -10
+    
+    # Check Wine DLL overrides
+    echo "Wine DLL overrides: $WINEDLLOVERRIDES"
+    
+    # Test Wine environment
+    echo "Testing Wine..."
+    if ! wine --version; then
+        echo "❌ Wine is not working properly"
+        exit 1
+    fi
+    
+    # Check if we can access the IPS directory from Wine
+    echo "Testing Wine access to IPS directory..."
+    wine cmd /c "dir $(echo "$IPS_WINE_PATH" | sed 's|\\[^\\]*$||')" || echo "Failed to access IPS directory via Wine"
+    
+    echo "=== Running IPS with debugging ==="
     cd "$IPS_DIR"
-    wine "$(basename "$IPS_INSTALLED")" "$@"
+    
+    # Set Wine debug to show DLL loading
+    export WINEDEBUG=+dll,+module,+loaddll
+    echo "Running: wine \"$IPS_WINE_PATH\""
+    wine "$IPS_WINE_PATH" "$@"
   '';
 }

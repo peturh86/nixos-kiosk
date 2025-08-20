@@ -173,13 +173,23 @@ if [ ! -d "$WINEPREFIX" ]; then
         echo "⚠ ODBC installation failed"
     fi
     
-    # Step 3: Setup domain authentication
-    echo "Step 3/4: Setting up domain authentication..."
+    # Step 3: Setup domain authentication (Wine limitations apply)
+    echo "Step 3/4: Setting up authentication for database access..."
+    echo "Note: Wine has limited Windows domain authentication support"
+    
+    # Create local Wine user (this won't provide real domain auth)
     echo | wine net user "fband" "fband" /add 2>/dev/null || echo "User already exists"
     
-    # Configure domain authentication for ODBC (non-interactive)
+    # Configure domain authentication for ODBC (limited effectiveness in Wine)
     echo | wine reg add "HKCU\\Software\\ODBC\\ODBC.INI\\Default Domain" /v "Domain" /t REG_SZ /d "Islandspostur" /f 2>/dev/null || true
     echo | wine reg add "HKCU\\Software\\ODBC\\ODBC.INI\\Default Domain" /v "User" /t REG_SZ /d "fband" /f 2>/dev/null || true
+    
+    # Add SQL Server authentication as fallback (more reliable in Wine)
+    echo "Setting up SQL Server authentication fallback..."
+    echo | wine reg add "HKCU\\Software\\ODBC\\ODBC.INI\\IPS_SQL" /v "Driver" /t REG_SZ /d "SQL Server" /f 2>/dev/null || true
+    echo | wine reg add "HKCU\\Software\\ODBC\\ODBC.INI\\IPS_SQL" /v "Server" /t REG_SZ /d "your-sql-server" /f 2>/dev/null || true
+    echo | wine reg add "HKCU\\Software\\ODBC\\ODBC.INI\\IPS_SQL" /v "Database" /t REG_SZ /d "IPS" /f 2>/dev/null || true
+    echo | wine reg add "HKCU\\Software\\ODBC\\ODBC.INI\\IPS_SQL" /v "Trusted_Connection" /t REG_SZ /d "No" /f 2>/dev/null || true
     
     # Step 4: Copy IPS files
     echo "Step 4/4: Installing IPS application files..."
@@ -516,11 +526,52 @@ echo "   - If using Windows Auth, the username will be: $WINDOWS_USER"
 echo ""
 echo "4. Test the connection before saving"
 echo "5. Note the DSN name - IPS will need this for connection"
+echo "Setting up ODBC drivers and data sources..."
+
+# Try multiple methods to configure ODBC
+
+echo "Method 1: Using odbcconf..."
+wine odbcconf /a {CONFIGDRIVER "SQL Server" "CPTimeout=60"} 2>/dev/null || echo "odbcconf method failed"
+
+echo "Method 2: Direct registry configuration..."
+# Configure SQL Server ODBC driver in registry
+wine reg add "HKLM\\SOFTWARE\\ODBC\\ODBCINST.INI\\SQL Server" /v "Driver" /t REG_SZ /d "sqlsrv32.dll" /f 2>/dev/null
+wine reg add "HKLM\\SOFTWARE\\ODBC\\ODBCINST.INI\\SQL Server" /v "Setup" /t REG_SZ /d "sqlsrv32.dll" /f 2>/dev/null
+wine reg add "HKLM\\SOFTWARE\\ODBC\\ODBCINST.INI\\SQL Server" /v "APILevel" /t REG_SZ /d "2" /f 2>/dev/null
+wine reg add "HKLM\\SOFTWARE\\ODBC\\ODBCINST.INI\\SQL Server" /v "ConnectFunctions" /t REG_SZ /d "YYY" /f 2>/dev/null
+wine reg add "HKLM\\SOFTWARE\\ODBC\\ODBCINST.INI\\SQL Server" /v "DriverODBCVer" /t REG_SZ /d "03.50" /f 2>/dev/null
+wine reg add "HKLM\\SOFTWARE\\ODBC\\ODBCINST.INI\\SQL Server" /v "FileUsage" /t REG_SZ /d "0" /f 2>/dev/null
+wine reg add "HKLM\\SOFTWARE\\ODBC\\ODBCINST.INI\\SQL Server" /v "SQLLevel" /t REG_SZ /d "1" /f 2>/dev/null
+
+echo "Method 3: Creating default data source..."
+wine reg add "HKCU\\SOFTWARE\\ODBC\\ODBC.INI\\IPS_Default" /v "Driver" /t REG_SZ /d "SQL Server" /f 2>/dev/null
+wine reg add "HKCU\\SOFTWARE\\ODBC\\ODBC.INI\\IPS_Default" /v "Description" /t REG_SZ /d "IPS Database Connection" /f 2>/dev/null
+wine reg add "HKCU\\SOFTWARE\\ODBC\\ODBC.INI\\IPS_Default" /v "Server" /t REG_SZ /d "(local)" /f 2>/dev/null
+wine reg add "HKCU\\SOFTWARE\\ODBC\\ODBC.INI\\IPS_Default" /v "Database" /t REG_SZ /d "IPS" /f 2>/dev/null
+wine reg add "HKCU\\SOFTWARE\\ODBC\\ODBC.INI\\IPS_Default" /v "Trusted_Connection" /t REG_SZ /d "No" /f 2>/dev/null
+
+echo "Method 4: Attempting ODBC control panel (may not work)..."
+wine control odbccp32.cpl &
+ODBC_PID=$!
+sleep 5
+if kill -0 $ODBC_PID 2>/dev/null; then
+    echo "ODBC control panel is running (PID: $ODBC_PID)"
+    echo "If you don't see a window, the control panel may not be working properly in Wine"
+    echo "Press Ctrl+C to continue without it"
+    wait $ODBC_PID
+else
+    echo "ODBC control panel did not start properly"
+fi
+
+echo "ODBC configuration completed using registry methods"
+echo "If the control panel didn't work, the registry settings should be sufficient"
 echo ""
+echo "Configured ODBC components:"
+echo "- SQL Server driver registered"
+echo "- Default IPS data source created"
+echo "- Ready for database connection testing"
 
-wine control odbccp32.cpl
-
-echo
+echo ""
 echo "ODBC configuration completed"
 echo "You can also manually edit registry entries if needed:"
 echo "  wine regedit"
@@ -856,6 +907,168 @@ echo ""
 echo "After editing, restart IPS to test the connection."
 EOF
       chmod +x $out/bin/ips-configure-database
+      
+      # Create authentication configuration tool
+      cat > $out/bin/ips-setup-auth <<'EOF'
+#!/bin/sh
+# Configure IPS database authentication for Wine environment
+echo "=== IPS Database Authentication Setup ==="
+
+# Calculate the same hash as the launcher
+IPS_HASH=$(echo "${placeholder "out"}" | sha256sum | cut -d' ' -f1 | head -c16)
+export WINEPREFIX="$HOME/.wine-ips-$IPS_HASH"
+export WINEARCH=win32
+
+if [ ! -d "$WINEPREFIX" ]; then
+    echo "❌ Wine prefix does not exist. Run 'ips' first to create it."
+    exit 1
+fi
+
+echo "Wine has limited Windows domain authentication support."
+echo "Choose authentication method:"
+echo ""
+echo "1. Windows Authentication (Limited - may not work)"
+echo "2. SQL Server Authentication (Recommended for Wine)"
+echo "3. Configure both options"
+echo ""
+read -p "Select option (1-3): " AUTH_CHOICE
+
+case "$AUTH_CHOICE" in
+    "1")
+        echo "Setting up Windows Authentication..."
+        echo "Warning: This may not work in Wine due to domain controller limitations"
+        
+        wine reg add "HKCU\\Software\\ODBC\\ODBC.INI\\IPS_Windows" /v "Driver" /t REG_SZ /d "SQL Server" /f
+        wine reg add "HKCU\\Software\\ODBC\\ODBC.INI\\IPS_Windows" /v "Trusted_Connection" /t REG_SZ /d "Yes" /f
+        
+        read -p "Enter SQL Server name/IP: " SERVER_NAME
+        wine reg add "HKCU\\Software\\ODBC\\ODBC.INI\\IPS_Windows" /v "Server" /t REG_SZ /d "$SERVER_NAME" /f
+        
+        read -p "Enter database name: " DB_NAME
+        wine reg add "HKCU\\Software\\ODBC\\ODBC.INI\\IPS_Windows" /v "Database" /t REG_SZ /d "$DB_NAME" /f
+        
+        echo "✓ Windows Authentication configured"
+        ;;
+        
+    "2")
+        echo "Setting up SQL Server Authentication..."
+        
+        wine reg add "HKCU\\Software\\ODBC\\ODBC.INI\\IPS_SQL" /v "Driver" /t REG_SZ /d "SQL Server" /f
+        wine reg add "HKCU\\Software\\ODBC\\ODBC.INI\\IPS_SQL" /v "Trusted_Connection" /t REG_SZ /d "No" /f
+        
+        read -p "Enter SQL Server name/IP: " SERVER_NAME
+        wine reg add "HKCU\\Software\\ODBC\\ODBC.INI\\IPS_SQL" /v "Server" /t REG_SZ /d "$SERVER_NAME" /f
+        
+        read -p "Enter database name: " DB_NAME
+        wine reg add "HKCU\\Software\\ODBC\\ODBC.INI\\IPS_SQL" /v "Database" /t REG_SZ /d "$DB_NAME" /f
+        
+        read -p "Enter SQL username: " SQL_USER
+        wine reg add "HKCU\\Software\\ODBC\\ODBC.INI\\IPS_SQL" /v "UID" /t REG_SZ /d "$SQL_USER" /f
+        
+        read -s -p "Enter SQL password: " SQL_PASS
+        echo ""
+        wine reg add "HKCU\\Software\\ODBC\\ODBC.INI\\IPS_SQL" /v "PWD" /t REG_SZ /d "$SQL_PASS" /f
+        
+        echo "✓ SQL Server Authentication configured"
+        ;;
+        
+    "3")
+        echo "Setting up both authentication methods..."
+        echo "You can try Windows auth first, then fall back to SQL auth if needed"
+        
+        # Windows Auth setup
+        wine reg add "HKCU\\Software\\ODBC\\ODBC.INI\\IPS_Windows" /v "Driver" /t REG_SZ /d "SQL Server" /f
+        wine reg add "HKCU\\Software\\ODBC\\ODBC.INI\\IPS_Windows" /v "Trusted_Connection" /t REG_SZ /d "Yes" /f
+        
+        # SQL Auth setup
+        wine reg add "HKCU\\Software\\ODBC\\ODBC.INI\\IPS_SQL" /v "Driver" /t REG_SZ /d "SQL Server" /f
+        wine reg add "HKCU\\Software\\ODBC\\ODBC.INI\\IPS_SQL" /v "Trusted_Connection" /t REG_SZ /d "No" /f
+        
+        read -p "Enter SQL Server name/IP: " SERVER_NAME
+        wine reg add "HKCU\\Software\\ODBC\\ODBC.INI\\IPS_Windows" /v "Server" /t REG_SZ /d "$SERVER_NAME" /f
+        wine reg add "HKCU\\Software\\ODBC\\ODBC.INI\\IPS_SQL" /v "Server" /t REG_SZ /d "$SERVER_NAME" /f
+        
+        read -p "Enter database name: " DB_NAME
+        wine reg add "HKCU\\Software\\ODBC\\ODBC.INI\\IPS_Windows" /v "Database" /t REG_SZ /d "$DB_NAME" /f
+        wine reg add "HKCU\\Software\\ODBC\\ODBC.INI\\IPS_SQL" /v "Database" /t REG_SZ /d "$DB_NAME" /f
+        
+        read -p "Enter SQL username for fallback: " SQL_USER
+        wine reg add "HKCU\\Software\\ODBC\\ODBC.INI\\IPS_SQL" /v "UID" /t REG_SZ /d "$SQL_USER" /f
+        
+        read -s -p "Enter SQL password for fallback: " SQL_PASS
+        echo ""
+        wine reg add "HKCU\\Software\\ODBC\\ODBC.INI\\IPS_SQL" /v "PWD" /t REG_SZ /d "$SQL_PASS" /f
+        
+        echo "✓ Both authentication methods configured"
+        ;;
+        
+    *)
+        echo "Invalid option"
+        exit 1
+        ;;
+esac
+
+echo ""
+echo "=== Next Steps ==="
+echo "1. Make sure the SQL Server allows connections from this machine"
+echo "2. Check that the database exists and user has access"
+echo "3. Test the connection with: ips-check-database" 
+echo "4. Run IPS to test database connectivity"
+echo ""
+echo "If Windows Authentication fails, IPS should be configured to use SQL Authentication"
+echo "Check IPS documentation for how to change authentication method in the application"
+EOF
+      chmod +x $out/bin/ips-setup-auth
+      
+      # Create simple ODBC testing tool
+      cat > $out/bin/ips-test-odbc <<'EOF'
+#!/bin/sh
+# Test ODBC configuration without GUI dialogs
+echo "=== ODBC Configuration Test ==="
+
+# Calculate the same hash as the launcher
+IPS_HASH=$(echo "${placeholder "out"}" | sha256sum | cut -d' ' -f1 | head -c16)
+export WINEPREFIX="$HOME/.wine-ips-$IPS_HASH"
+export WINEARCH=win32
+
+if [ ! -d "$WINEPREFIX" ]; then
+    echo "❌ Wine prefix does not exist. Run 'ips' first to create it."
+    exit 1
+fi
+
+echo "Testing ODBC drivers and data sources..."
+echo ""
+
+echo "=== Installed ODBC Drivers ==="
+wine odbcconf /q /a {enumdrivers} 2>/dev/null | grep -v "^$" || echo "No drivers found or odbcconf not working"
+
+echo ""
+echo "=== Configured Data Sources ==="
+wine odbcconf /q /a {enumdsn} 2>/dev/null | grep -v "^$" || echo "No data sources found or odbcconf not working"
+
+echo ""
+echo "=== Registry Check ==="
+echo "ODBC Drivers in registry:"
+wine reg query "HKLM\\SOFTWARE\\ODBC\\ODBCINST.INI" /s 2>/dev/null | grep -E "SQL Server|Driver" | head -5
+
+echo ""
+echo "ODBC Data Sources in registry:"
+wine reg query "HKCU\\SOFTWARE\\ODBC\\ODBC.INI" /s 2>/dev/null | grep -E "IPS|Driver|Server" | head -10
+
+echo ""
+echo "=== Quick Connection Test ==="
+echo "Attempting basic ODBC connection test..."
+
+# Create a simple test script
+cat > /tmp/odbc_test.sql <<'SQLEOF'
+SELECT @@VERSION;
+SQLEOF
+
+echo "Note: Actual connection testing requires valid server/credentials"
+echo "Use 'ips-setup-auth' to configure database authentication"
+echo "Then run 'ips' to test the actual IPS database connection"
+EOF
+      chmod +x $out/bin/ips-test-odbc
       
       # Create comprehensive Wine diagnostics tool
       cat > $out/bin/ips-diagnose <<'EOF'

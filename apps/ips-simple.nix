@@ -14,7 +14,8 @@ in
     # Wine environment (32-bit required for MDAC28)
     export WINEPREFIX="$HOME/.wine-ips-${wineBase.wine_hash}"
     export WINEARCH=win32
-    export WINEDLLOVERRIDES="mscoree,mshtml="
+    # Temporarily remove DLL overrides that might interfere with IPS
+    # export WINEDLLOVERRIDES="mscoree,mshtml="
 
     # NAS configuration
     NAS_SHARE="/mnt/nas-share"
@@ -92,7 +93,7 @@ in
     find "$IPS_DIR" -name "*.dll" | head -10
     
     # Check Wine DLL overrides
-    echo "Wine DLL overrides: $WINEDLLOVERRIDES"
+    echo "Wine DLL overrides: ${WINEDLLOVERRIDES:-none}"
     
     # Test Wine environment
     echo "Testing Wine..."
@@ -108,8 +109,8 @@ in
     echo "=== Running IPS with debugging ==="
     cd "$IPS_DIR"
     
-    # Set Wine debug to show DLL loading
-    export WINEDEBUG=+dll,+module,+loaddll
+    # Don't suppress debug output initially - let's see what's happening
+    export WINEDEBUG=+dll,+module
     echo "Running: wine \"$IPS_WINE_PATH\""
     wine "$IPS_WINE_PATH" "$@"
   '';

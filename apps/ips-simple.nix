@@ -16,6 +16,14 @@ in
     export WINEARCH=win32
     # Temporarily remove DLL overrides that might interfere with IPS
     # export WINEDLLOVERRIDES="mscoree,mshtml="
+    
+    # Check for custom Wine hostname setup
+    WINE_WRAPPER="$HOME/.wine-hostname-wrapper"
+    if [ -f "$WINE_WRAPPER" ]; then
+        echo "🏷️  Using custom Wine hostname wrapper"
+        # Source the wrapper to get environment variables
+        source "$WINE_WRAPPER" /bin/true 2>/dev/null || true
+    fi
 
     # NAS configuration
     NAS_SHARE="/mnt/nas-share"

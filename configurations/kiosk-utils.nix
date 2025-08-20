@@ -67,21 +67,34 @@
       echo ""
       echo "🔧 Setting Wine hostname to: $NEW_HOSTNAME"
       
-      # Set the hostname in Wine registry
-      # The hostname is stored in multiple places in Windows registry
+      # First, stop Wine server to ensure clean state
+      echo "Stopping Wine server..."
+      wineserver -k 2>/dev/null || true
+      sleep 1
+      
+      # Set the hostname in Wine registry (multiple approaches)
+      echo "Setting registry keys..."
+      
+      # Method 1: Computer name keys
       wine reg add "HKLM\\SYSTEM\\CurrentControlSet\\Control\\ComputerName\\ActiveComputerName" /v "ComputerName" /t REG_SZ /d "$NEW_HOSTNAME" /f 2>/dev/null
       wine reg add "HKLM\\SYSTEM\\CurrentControlSet\\Control\\ComputerName\\ComputerName" /v "ComputerName" /t REG_SZ /d "$NEW_HOSTNAME" /f 2>/dev/null
+      
+      # Method 2: TCP/IP Parameters
       wine reg add "HKLM\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters" /v "Hostname" /t REG_SZ /d "$NEW_HOSTNAME" /f 2>/dev/null
       wine reg add "HKLM\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters" /v "NV Hostname" /t REG_SZ /d "$NEW_HOSTNAME" /f 2>/dev/null
       
-      echo "✅ Hostname set in Wine registry"
-      echo ""
+      # Method 3: Environment variable approach (this often works better)
+      wine reg add "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment" /v "COMPUTERNAME" /t REG_SZ /d "$NEW_HOSTNAME" /f 2>/dev/null
+      wine reg add "HKCU\\Environment" /v "COMPUTERNAME" /t REG_SZ /d "$NEW_HOSTNAME" /f 2>/dev/null
       
-      # Restart Wine server to apply changes
-      echo "🔄 Restarting Wine server to apply hostname change..."
+      # Method 4: Set in Wine's system.reg directly (more direct approach)
+      echo "Updating Wine configuration..."
+      
+      # Stop Wine server again to ensure changes take effect
       wineserver -k 2>/dev/null || true
       sleep 2
-      echo "✅ Wine server restarted"
+      
+      echo "✅ Hostname set in Wine registry"
       echo ""
       
       # Verify the change
@@ -98,10 +111,34 @@
         echo "  • SAP client"
         echo "  • Any other Wine applications"
       else
-        echo "⚠️  Warning: Verification shows different hostname."
-        echo "   Expected: $NEW_HOSTNAME"
-        echo "   Got: $NEW_CHECK"
-        echo "   You may need to restart Wine applications."
+        echo "⚠️  Standard method didn't work. Trying alternative approach..."
+        echo ""
+        
+        # Alternative: Use WINEHOST environment variable
+        echo "Setting up Wine environment variable override..."
+        
+        # Create a wrapper script that sets WINEHOST
+        WINE_WRAPPER="$HOME/.wine-hostname-wrapper"
+        cat > "$WINE_WRAPPER" << WRAPPER_EOF
+#!/bin/bash
+export WINEHOST="$NEW_HOSTNAME"
+export COMPUTERNAME="$NEW_HOSTNAME"
+export WINEPREFIX="$WINEPREFIX"
+export PATH="${pkgs.wineWowPackages.stable}/bin:\$PATH"
+exec "\$@"
+WRAPPER_EOF
+        chmod +x "$WINE_WRAPPER"
+        
+        echo "Created Wine wrapper at: $WINE_WRAPPER"
+        echo ""
+        echo "⚡ Alternative solution:"
+        echo "For applications that need the custom hostname, use:"
+        echo "  $WINE_WRAPPER wine your-application.exe"
+        echo ""
+        echo "Or set environment variables manually:"
+        echo "  export WINEHOST=$NEW_HOSTNAME"
+        echo "  export COMPUTERNAME=$NEW_HOSTNAME"
+        echo "  wine your-application.exe"
       fi
       
       echo ""

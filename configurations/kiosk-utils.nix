@@ -46,10 +46,10 @@ let
       }
 
       conky.text = [[
-$${color orange}$${nodename}$${color}
-$${time %H:%M:%S}
-$${color grey}Up: $${uptime_short}$${color}
-$${color grey}IP: $${addr eth0}$${color}
+''${color orange}''${nodename}''${color}
+''${time %H:%M:%S}
+''${color grey}Up: ''${uptime_short}''${color}
+''${color grey}IP: ''${addr eth0}''${color}
       ]]
     '';
   };

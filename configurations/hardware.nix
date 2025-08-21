@@ -2,8 +2,8 @@
 { config, pkgs, lib, ... }:
 
 {
-  # Audio configuration
-  sound.enable = true;
+  # Audio configuration (PipeWire - modern audio system)
+  # Note: sound.enable is deprecated, PipeWire handles everything
   services.pulseaudio.enable = false;
   security.rtkit.enable = true;
   services.pipewire = {

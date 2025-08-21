@@ -6,24 +6,20 @@
     ./nas-setup.nix
     ./apps.nix
 
+    # Core system configuration
     ./configurations/system.nix
-    ./configurations/desktop.nix
-    ./configurations/audio-print.nix
     ./configurations/users.nix
     ./configurations/programs.nix
     ./configurations/nixpkgs.nix
-    ./configurations/power.nix
+    ./configurations/hardware.nix
     ./configurations/kiosk-utils.nix
 
-    ./modules/ui/xserver-openbox.nix
-    ./modules/ui/dm-lightdm.nix
+    # Desktop environment (unified)
+    ./desktop/session.nix
+
+    # Keep only essential modules
     ./modules/ui/openbox-menu.nix
-    ./modules/panel/tint2-packages.nix
-    ./modules/panel/tint2-config.nix
     ./modules/apps/desktop-entries.nix
-    ./modules/kiosk/autostart.nix
-    ./modules/kiosk/autostart-add-tint2.nix
-    ./modules/kiosk/x-session-commands.nix
   ];
 
   # This value determines the NixOS release from which the default

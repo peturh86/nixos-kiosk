@@ -127,11 +127,15 @@
       
       if [ -f "$CONKY_CONFIG" ]; then
         echo "Using config: $CONKY_CONFIG"
-        conky -c "$CONKY_CONFIG" &
-        echo "Conky overlay started"
+        # Start conky detached from terminal
+        nohup conky -c "$CONKY_CONFIG" > /dev/null 2>&1 &
+        echo "Conky overlay started (PID: $!)"
       else
         echo "Conky config not found at $CONKY_CONFIG"
-        exit 1
+        # Fallback: start conky with default config
+        echo "Starting conky with default config..."
+        nohup conky > /dev/null 2>&1 &
+        echo "Conky started with default config (PID: $!)"
       fi
     '')
 
@@ -151,22 +155,26 @@
       # Kill any existing osd processes
       pkill osd_cat 2>/dev/null || true
       
-      # Continuous OSD display
-      while true; do
-        HOSTNAME=$(hostname)
-        IP=$(ip route get 1.1.1.1 2>/dev/null | grep -oP 'src \K\S+' || echo "no-ip")
-        NIXOS=$(nixos-version | cut -d' ' -f1-2)
-        UPTIME=$(uptime -p | sed 's/up //')
-        TIME=$(date '+%Y-%m-%d %H:%M:%S')
-        
-        echo -e "$HOSTNAME | $IP | $NIXOS\nUptime: $UPTIME | $TIME" | \
-          osd_cat --pos=top --align=right --offset=20 \
-                  --colour=white --shadow=2 --shadowcolour=black \
-                  --font='-*-courier-*-*-*-*-12-*-*-*-*-*-*-*' \
-                  --delay=30 &
-        
-        sleep 30
-      done
+      # Start detached OSD loop
+      nohup bash -c '
+        while true; do
+          HOSTNAME=$(hostname)
+          IP=$(ip route get 1.1.1.1 2>/dev/null | grep -oP "src \K\S+" || echo "no-ip")
+          NIXOS=$(nixos-version | cut -d" " -f1-2)
+          UPTIME=$(uptime -p | sed "s/up //")
+          TIME=$(date "+%Y-%m-%d %H:%M:%S")
+          
+          echo -e "$HOSTNAME | $IP | $NIXOS\nUptime: $UPTIME | $TIME" | \
+            osd_cat --pos=top --align=right --offset=20 \
+                    --colour=white --shadow=2 --shadowcolour=black \
+                    --font="-*-courier-*-*-*-*-12-*-*-*-*-*-*-*" \
+                    --delay=30 &
+          
+          sleep 30
+        done
+      ' > /dev/null 2>&1 &
+      
+      echo "OSD overlay started (PID: $!)"
     '')
 
     # Auto-start overlay (tries conky first, falls back to osd)
@@ -183,11 +191,43 @@
         start-conky-overlay
       elif command -v osd_cat &> /dev/null; then
         echo "Using OSD overlay"
-        start-osd-overlay &
+        start-osd-overlay
       else
         echo "No overlay tools available"
         exit 1
       fi
+    '')
+
+    # Debug script to test overlay setup
+    (pkgs.writeShellScriptBin "debug-overlay" ''
+      #!/bin/bash
+      echo "=== Overlay Debug Info ==="
+      echo "DISPLAY: $DISPLAY"
+      echo "USER: $USER"
+      echo "HOME: $HOME"
+      echo ""
+      
+      echo "Available tools:"
+      command -v conky && echo "✅ conky available" || echo "❌ conky missing"
+      command -v osd_cat && echo "✅ osd_cat available" || echo "❌ osd_cat missing"
+      echo ""
+      
+      echo "Running processes:"
+      pgrep -f conky && echo "✅ conky running" || echo "❌ conky not running"
+      pgrep -f osd_cat && echo "✅ osd_cat running" || echo "❌ osd_cat not running"
+      echo ""
+      
+      echo "Config check:"
+      CONKY_CONFIG="${conky-kiosk-config}/share/conky/conky-kiosk.conf"
+      [ -f "$CONKY_CONFIG" ] && echo "✅ conky config found: $CONKY_CONFIG" || echo "❌ conky config missing: $CONKY_CONFIG"
+      echo ""
+      
+      echo "Test simple conky (5 seconds):"
+      echo "conky.text = [[''${time %H:%M:%S}]]" > /tmp/test-conky.conf
+      timeout 5 conky -c /tmp/test-conky.conf &
+      sleep 6
+      rm -f /tmp/test-conky.conf
+      echo "Test complete"
     '')
   ];
 }

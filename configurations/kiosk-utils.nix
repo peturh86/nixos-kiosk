@@ -4,8 +4,11 @@
 
 {
   environment.systemPackages = [
-    # Desktop overlay tool
+    # Desktop overlay tools
     pkgs.conky
+    pkgs.xorg.xwininfo
+    pkgs.xorg.xmessage
+    # pkgs.xosd  # Uncomment if you want osd_cat support
     
     # Wine server restart utility
     (pkgs.writeShellScriptBin "restart-wine" ''
@@ -142,18 +145,82 @@
       echo "  wine regedit"
       echo "  wine uninstaller"
       echo ""
-      echo "Starting a shell with Wine environment..."
-      exec $SHELL
+    # Test system info overlay (debugging version)
+    (pkgs.writeShellScriptBin "test-system-info" ''
+      #!/bin/bash
+      
+      echo "Testing system info overlay methods..."
+      echo ""
+      
+      # Get system information
+      HOSTNAME=$(hostname)
+      NIXOS_VERSION=$(nixos-version | cut -d' ' -f1-2)
+      SERIAL=$(cat /sys/class/dmi/id/product_serial 2>/dev/null || echo "MAC-$(ip link show | grep -o 'link/ether [^[:space:]]*' | head -1 | cut -d' ' -f2 | tr -d ':' | tr '[:lower:]' '[:upper:]' | cut -c7-12)")
+      IP_ADDR=$(ip route get 1.1.1.1 2>/dev/null | grep -oP 'src \K\S+' || echo "no-network")
+      UPTIME=$(uptime -p | sed 's/up //')
+      TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
+      
+      INFO_TEXT="$HOSTNAME | $SERIAL | $IP_ADDR | $NIXOS_VERSION | Up: $UPTIME | $TIMESTAMP"
+      
+      echo "System info to display:"
+      echo "$INFO_TEXT"
+      echo ""
+      
+      # Test X11 environment
+      echo "X11 Environment:"
+      echo "  DISPLAY: $DISPLAY"
+      echo "  Screen resolution: $(xwininfo -root | grep geometry | awk '{print $2}')"
+      echo ""
+      
+      # Test available overlay methods
+      echo "Available overlay methods:"
+      if command -v conky &> /dev/null; then
+        echo "  ✅ conky"
+      else
+        echo "  ❌ conky"
+      fi
+      
+      if command -v osd_cat &> /dev/null; then
+        echo "  ✅ osd_cat"
+      else
+        echo "  ❌ osd_cat"
+      fi
+      
+      if command -v xmessage &> /dev/null; then
+        echo "  ✅ xmessage"
+      else
+        echo "  ❌ xmessage"
+      fi
+      
+      if command -v xterm &> /dev/null; then
+        echo "  ✅ xterm"
+      else
+        echo "  ❌ xterm"
+      fi
+      
+      echo ""
+      echo "Testing xmessage overlay (will show for 5 seconds)..."
+      
+      # Test xmessage overlay
+      if command -v xmessage &> /dev/null; then
+        echo "$INFO_TEXT" | xmessage -file - -geometry +50+50 -timeout 5 &
+        echo "xmessage test started"
+      else
+        echo "xmessage not available"
+      fi
     '')
 
-    # Desktop system info overlay
+    # Desktop system info overlay (Openbox-compatible)
     (pkgs.writeShellScriptBin "show-system-info-overlay" ''
       #!/bin/bash
       
       # Kill any existing overlay
       pkill -f "system-info-overlay" 2>/dev/null || true
+      pkill -f "conky.*system-info" 2>/dev/null || true
       
-      # Create system info display
+      echo "Starting system info overlay..."
+      
+      # Create system info display loop
       while true; do
         # Get system information
         HOSTNAME=$(hostname)
@@ -176,65 +243,24 @@
         # Current timestamp
         TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
         
-        # Display using conky
-        if command -v conky &> /dev/null; then
-          # Create temporary conky config
-          CONKY_CONFIG="/tmp/system-info-conky.conf"
-          cat > "$CONKY_CONFIG" << EOF
-conky.config = {
-    alignment = 'top_right',
-    gap_x = 20,
-    gap_y = 20,
-    minimum_height = 5,
-    minimum_width = 5,
-    net_avg_samples = 2,
-    no_buffers = true,
-    out_to_console = false,
-    out_to_ncurses = false,
-    out_to_stderr = false,
-    out_to_x = true,
-    own_window = true,
-    own_window_class = 'Conky',
-    own_window_type = 'override',
-    own_window_transparent = true,
-    own_window_hints = 'undecorated,below,sticky,skip_taskbar,skip_pager',
-    own_window_colour = 'black',
-    own_window_argb_visual = true,
-    own_window_argb_value = 0,
-    update_interval = 30.0,
-    uppercase = false,
-    use_spacer = 'none',
-    show_graph_scale = false,
-    show_graph_range = false,
-    double_buffer = true,
-    font = 'DejaVu Sans Mono:size=10',
-    default_color = 'white',
-    default_outline_color = 'black',
-    default_shade_color = 'black',
-    draw_borders = false,
-    draw_graph_borders = true,
-    draw_outline = true,
-    draw_shades = false,
-    use_xft = true,
-}
-
-conky.text = [[
-$HOSTNAME | $SERIAL | $IP_ADDR
-$NIXOS_VERSION | Up: $UPTIME
-$TIMESTAMP
-]]
-EOF
-          
-          conky -c "$CONKY_CONFIG" &
-          CONKY_PID=$!
-          
-          # Wait 30 seconds, then restart to refresh info
+        # Try different overlay methods
+        
+        # Method 1: Try osd_cat (simple text overlay)
+        if command -v osd_cat &> /dev/null; then
+          echo -e "$HOSTNAME | $SERIAL | $IP_ADDR\n$NIXOS_VERSION | Up: $UPTIME\n$TIMESTAMP" | \
+            osd_cat --pos=top --align=right --offset=20 --colour=white --shadow=1 --font='-*-courier-*-*-*-*-12-*-*-*-*-*-*-*' --delay=30 &
           sleep 30
-          kill $CONKY_PID 2>/dev/null || true
-          
+        # Method 2: Try xmessage (simple but works)
+        elif command -v xmessage &> /dev/null; then
+          echo "$HOSTNAME | $SERIAL | $IP_ADDR
+$NIXOS_VERSION | Up: $UPTIME
+$TIMESTAMP" | xmessage -file - -geometry +$(($(xwininfo -root | grep Width | awk '{print $2}') - 300))+20 -timeout 30 &
+          sleep 30
+        # Method 3: xterm overlay (guaranteed to work)
         else
-          # Fallback: simple overlay
-          echo "$HOSTNAME | $SERIAL | $IP_ADDR | $NIXOS_VERSION | Up: $UPTIME | $TIMESTAMP" > /tmp/system-info.txt
+          INFO_TEXT="$HOSTNAME | $SERIAL | $IP_ADDR | $NIXOS_VERSION | Up: $UPTIME | $TIMESTAMP"
+          echo "$INFO_TEXT" | xterm -geometry 60x1+$(($(xwininfo -root | grep Width | awk '{print $2}') - 480))+20 \
+            -title "System Info" -fg white -bg black -fn "6x10" -e "cat; sleep 30" &
           sleep 30
         fi
         

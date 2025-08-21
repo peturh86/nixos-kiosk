@@ -152,13 +152,13 @@
       
       # Continuous OSD display
       while true; do
-        HOSTNAME=$$(hostname)
-        IP=$$(ip route get 1.1.1.1 2>/dev/null | grep -oP 'src \K\S+' || echo "no-ip")
-        NIXOS=$$(nixos-version | cut -d' ' -f1-2)
-        UPTIME=$$(uptime -p | sed 's/up //')
-        TIME=$$(date '+%Y-%m-%d %H:%M:%S')
+        HOSTNAME=$(hostname)
+        IP=$(ip route get 1.1.1.1 2>/dev/null | grep -oP 'src \K\S+' || echo "no-ip")
+        NIXOS=$(nixos-version | cut -d' ' -f1-2)
+        UPTIME=$(uptime -p | sed 's/up //')
+        TIME=$(date '+%Y-%m-%d %H:%M:%S')
         
-        echo -e "$$HOSTNAME | $$IP | $$NIXOS\nUptime: $$UPTIME | $$TIME" | \
+        echo -e "$HOSTNAME | $IP | $NIXOS\nUptime: $UPTIME | $TIME" | \
           osd_cat --pos=top --align=right --offset=20 \
                   --colour=white --shadow=2 --shadowcolour=black \
                   --font='-*-courier-*-*-*-*-12-*-*-*-*-*-*-*' \

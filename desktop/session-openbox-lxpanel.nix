@@ -28,6 +28,9 @@
       #!/bin/sh
       # Panel
       ${pkgs.lxpanel}/bin/lxpanel &
+      
+      # System info overlay
+      start-system-overlay &
     '';
     mode = "0755";
   };

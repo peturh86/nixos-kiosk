@@ -3,12 +3,64 @@
 { config, pkgs, ... }:
 
 {
-  environment.systemPackages = [
+  environment.systemPackages = let
+    # Conky config package
+    conky-kiosk-config = pkgs.writeTextFile {
+      name = "conky-kiosk.conf";
+      destination = "/share/conky/conky-kiosk.conf";
+      text = ''
+        conky.config = {
+            alignment = 'top_right',
+            background = false,
+            border_width = 0,
+            cpu_avg_samples = 2,
+            default_color = 'white',
+            default_outline_color = 'black',
+            default_shade_color = 'black',
+            draw_borders = false,
+            draw_graph_borders = false,
+            draw_outline = true,
+            draw_shades = true,
+            use_xft = true,
+            font = 'DejaVu Sans Mono:size=9',
+            gap_x = 15,
+            gap_y = 15,
+            minimum_height = 5,
+            minimum_width = 250,
+            net_avg_samples = 2,
+            no_buffers = true,
+            out_to_console = false,
+            out_to_stderr = false,
+            extra_newline = false,
+            own_window = true,
+            own_window_class = 'Conky',
+            own_window_type = 'desktop',
+            own_window_transparent = true,
+            own_window_argb_visual = true,
+            own_window_argb_value = 180,
+            stippled_borders = 0,
+            update_interval = 30.0,
+            uppercase = false,
+            use_spacer = 'none',
+            show_graph_scale = false,
+            show_graph_range = false
+        }
+
+        conky.text = [[
+        ''${color orange}''${nodename}''${color}
+        ''${time %H:%M:%S}
+        ''${color grey}Up: ''${uptime_short}''${color}
+        ''${color grey}IP: ''${addr eth0}''${color}
+        ]]
+      '';
+    };
+  in [
     # Desktop overlay tools
     pkgs.conky
     pkgs.xosd  # For osd_cat fallback
     pkgs.xorg.xwininfo
     pkgs.xorg.xmessage
+    conky-kiosk-config
     
     # Simple Wine restart utility
     (pkgs.writeShellScriptBin "restart-wine" ''
@@ -61,64 +113,6 @@
       echo "$$INFO" | xmessage -file - -geometry +50+50 -timeout 10 2>/dev/null &
     '')
 
-    # Conky configuration for persistent desktop overlay
-    (pkgs.writeTextFile {
-      name = "conky-kiosk.conf";
-      destination = "/etc/conky/conky-kiosk.conf";
-      text = ''
-        conky.config = {
-            alignment = 'top_right',
-            background = false,
-            border_width = 1,
-            cpu_avg_samples = 2,
-            default_color = 'white',
-            default_outline_color = 'white',
-            default_shade_color = 'white',
-            draw_borders = false,
-            draw_graph_borders = true,
-            draw_outline = false,
-            draw_shades = false,
-            use_xft = true,
-            font = 'DejaVu Sans Mono:size=10',
-            gap_x = 20,
-            gap_y = 20,
-            minimum_height = 5,
-            minimum_width = 300,
-            net_avg_samples = 2,
-            no_buffers = true,
-            out_to_console = false,
-            out_to_stderr = false,
-            extra_newline = false,
-            own_window = true,
-            own_window_class = 'Conky',
-            own_window_type = 'desktop',
-            own_window_transparent = true,
-            own_window_argb_visual = true,
-            own_window_argb_value = 200,
-            stippled_borders = 0,
-            update_interval = 30.0,
-            uppercase = false,
-            use_spacer = 'none',
-            show_graph_scale = false,
-            show_graph_range = false
-        }
-
-        conky.text = [[
-        ''${color orange}SYSTEM INFO''${color}
-        Hostname: ''${nodename}
-        IP: ''${addr eth0}
-        NixOS: ''${exec nixos-version | cut -d' ' -f1-2}
-        Uptime: ''${uptime}
-        Time: ''${time %Y-%m-%d %H:%M:%S}
-        
-        ''${color orange}HARDWARE''${color}
-        CPU: ''${cpu cpu0}%
-        RAM: ''${memperc}% (''${mem}/''${memmax})
-        Disk: ''${fs_used_perc /}% (''${fs_used /}/''${fs_size /})
-        ]]
-      '';
-    })
-
     # Start conky overlay
     (pkgs.writeShellScriptBin "start-conky-overlay" ''
       #!/bin/bash
@@ -128,10 +122,17 @@
       pkill conky 2>/dev/null || true
       sleep 1
       
-      # Start conky with our config
-      conky -c /etc/conky/conky-kiosk.conf &
+      # Find the config file
+      CONKY_CONFIG="${conky-kiosk-config}/share/conky/conky-kiosk.conf"
       
-      echo "Conky overlay started"
+      if [ -f "$CONKY_CONFIG" ]; then
+        echo "Using config: $CONKY_CONFIG"
+        conky -c "$CONKY_CONFIG" &
+        echo "Conky overlay started"
+      else
+        echo "Conky config not found at $CONKY_CONFIG"
+        exit 1
+      fi
     '')
 
     # Stop conky overlay  
@@ -177,7 +178,7 @@
       sleep 3
       
       # Try conky first
-      if command -v conky &> /dev/null && [ -f /etc/conky/conky-kiosk.conf ]; then
+      if command -v conky &> /dev/null; then
         echo "Using conky overlay"
         start-conky-overlay
       elif command -v osd_cat &> /dev/null; then

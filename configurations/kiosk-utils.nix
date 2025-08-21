@@ -2,59 +2,61 @@
 # These are general system management tools for the kiosk environment
 { config, pkgs, ... }:
 
-{
-  environment.systemPackages = let
-    # Conky config package
-    conky-kiosk-config = pkgs.writeTextFile {
-      name = "conky-kiosk.conf";
-      destination = "/share/conky/conky-kiosk.conf";
-      text = ''
-        conky.config = {
-            alignment = 'top_right',
-            background = false,
-            border_width = 0,
-            cpu_avg_samples = 2,
-            default_color = 'white',
-            default_outline_color = 'black',
-            default_shade_color = 'black',
-            draw_borders = false,
-            draw_graph_borders = false,
-            draw_outline = true,
-            draw_shades = true,
-            use_xft = true,
-            font = 'DejaVu Sans Mono:size=9',
-            gap_x = 15,
-            gap_y = 15,
-            minimum_height = 5,
-            minimum_width = 250,
-            net_avg_samples = 2,
-            no_buffers = true,
-            out_to_console = false,
-            out_to_stderr = false,
-            extra_newline = false,
-            own_window = true,
-            own_window_class = 'Conky',
-            own_window_type = 'desktop',
-            own_window_transparent = true,
-            own_window_argb_visual = true,
-            own_window_argb_value = 180,
-            stippled_borders = 0,
-            update_interval = 30.0,
-            uppercase = false,
-            use_spacer = 'none',
-            show_graph_scale = false,
-            show_graph_range = false
-        }
+let
+  # Conky config package
+  conky-kiosk-config = pkgs.writeTextFile {
+    name = "conky-kiosk.conf";
+    destination = "/share/conky/conky-kiosk.conf";
+    text = ''
+      conky.config = {
+          alignment = 'top_right',
+          background = false,
+          border_width = 0,
+          cpu_avg_samples = 2,
+          default_color = 'white',
+          default_outline_color = 'black',
+          default_shade_color = 'black',
+          draw_borders = false,
+          draw_graph_borders = false,
+          draw_outline = true,
+          draw_shades = true,
+          use_xft = true,
+          font = 'DejaVu Sans Mono:size=9',
+          gap_x = 15,
+          gap_y = 15,
+          minimum_height = 5,
+          minimum_width = 250,
+          net_avg_samples = 2,
+          no_buffers = true,
+          out_to_console = false,
+          out_to_stderr = false,
+          extra_newline = false,
+          own_window = true,
+          own_window_class = 'Conky',
+          own_window_type = 'desktop',
+          own_window_transparent = true,
+          own_window_argb_visual = true,
+          own_window_argb_value = 180,
+          stippled_borders = 0,
+          update_interval = 30.0,
+          uppercase = false,
+          use_spacer = 'none',
+          show_graph_scale = false,
+          show_graph_range = false
+      }
 
-        conky.text = [[
+      conky.text = [[
 $${color orange}$${nodename}$${color}
 $${time %H:%M:%S}
 $${color grey}Up: $${uptime_short}$${color}
 $${color grey}IP: $${addr eth0}$${color}
-        ]]
-      '';
-    };
-  in [
+      ]]
+    '';
+  };
+in
+
+{
+  environment.systemPackages = [
     # Desktop overlay tools
     pkgs.conky
     pkgs.xosd  # For osd_cat fallback

@@ -47,10 +47,10 @@
         }
 
         conky.text = [[
-        ''${color orange}''${nodename}''${color}
-        ''${time %H:%M:%S}
-        ''${color grey}Up: ''${uptime_short}''${color}
-        ''${color grey}IP: ''${addr eth0}''${color}
+$${color orange}$${nodename}$${color}
+$${time %H:%M:%S}
+$${color grey}Up: $${uptime_short}$${color}
+$${color grey}IP: $${addr eth0}$${color}
         ]]
       '';
     };
@@ -220,10 +220,27 @@
       echo "Config check:"
       CONKY_CONFIG="${conky-kiosk-config}/share/conky/conky-kiosk.conf"
       [ -f "$CONKY_CONFIG" ] && echo "✅ conky config found: $CONKY_CONFIG" || echo "❌ conky config missing: $CONKY_CONFIG"
+      
+      if [ -f "$CONKY_CONFIG" ]; then
+        echo "Config content preview:"
+        head -10 "$CONKY_CONFIG"
+      fi
       echo ""
       
       echo "Test simple conky (5 seconds):"
-      echo "conky.text = [[''${time %H:%M:%S}]]" > /tmp/test-conky.conf
+      cat > /tmp/test-conky.conf << 'EOF'
+conky.config = {
+    alignment = 'top_left',
+    background = false,
+    own_window = true,
+    own_window_type = 'desktop',
+    update_interval = 1.0
+}
+conky.text = [[
+$${time %H:%M:%S}
+]]
+EOF
+      echo "Starting test conky..."
       timeout 5 conky -c /tmp/test-conky.conf &
       sleep 6
       rm -f /tmp/test-conky.conf

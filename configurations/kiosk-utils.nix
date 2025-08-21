@@ -277,7 +277,9 @@
       
       # Disk usage
       echo "Storage:"
-      df -h / | tail -1 | awk ''{print "  Root: " $3 "/" $2 " (" $5 " used)"}''
+      df -h / | tail -1 | while read fs size used avail percent mount; do
+        echo "  Root: $used/$size ($percent used)"
+      done
       echo ""
       
       echo "💡 Management commands:"
@@ -374,10 +376,10 @@ conky.config = {
 }
 
 conky.text = [[
-\''${color white}\''${font DejaVu Sans Mono:bold:size=9}$HOSTNAME\''${font} | $SERIAL | $IP_ADDR
+$HOSTNAME | $SERIAL | $IP_ADDR
 Wine: $WINE_HOSTNAME | $NIXOS_VERSION  
 Up: $UPTIME
-\''${color grey}\''${font DejaVu Sans Mono:size=8}$TIMESTAMP\''${font}
+$TIMESTAMP
 ]]
 EOF
           

@@ -69,37 +69,6 @@ in
       echo "Checking Wine registry for IPS..."
       wine reg query "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall" 2>/dev/null | grep -i ips || echo "IPS not found in registry"
     '')
-    # Wine environment helper for manual debugging
-    (pkgs.writeShellScriptBin "wine-env" ''
-      # Set up Wine environment for manual use
-      WINE_PREFIX=$(ls -d $HOME/.wine-ips-* 2>/dev/null | head -1)
-      if [ -z "$WINE_PREFIX" ]; then
-        echo "❌ No Wine prefix found. Run 'ips' first to create one."
-        exit 1
-      fi
-      
-      export WINEPREFIX="$WINE_PREFIX"
-      export PATH="${pkgs.wineWowPackages.stable}/bin:$PATH"
-      
-      echo "🍷 Wine environment ready!"
-      echo "Wine prefix: $WINEPREFIX"
-      echo "Wine version: $(wine --version)"
-      echo ""
-      echo "You can now run Wine commands like:"
-      echo "  wine notepad"
-      echo "  wine regedit"
-      echo "  wine uninstaller"
-      echo ""
-      echo "To run other executables in IPS directory:"
-      IPS_DIR=$(find "$WINEPREFIX/drive_c" -name "IPS.exe" -type f 2>/dev/null | head -1 | xargs dirname)
-      if [ -n "$IPS_DIR" ]; then
-        echo "  cd '$IPS_DIR'"
-        echo "  wine SomeOtherApp.exe"
-      fi
-      echo ""
-      echo "Starting a shell with Wine environment..."
-      exec $SHELL
-    '')
   ];
   
   # Optional: Add database tools to system packages if needed for debugging

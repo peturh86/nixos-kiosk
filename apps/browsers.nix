@@ -2,6 +2,6 @@
 {
   environment.systemPackages = with pkgs; [
     chromium
-    firefox
+    # firefox is enabled via programs.firefox.enable in configurations/programs.nix
   ];
 }

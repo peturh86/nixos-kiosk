@@ -246,5 +246,61 @@ EOF
       rm -f /tmp/test-conky.conf
       echo "Test complete"
     '')
+
+    # Systemd service management
+    (pkgs.writeShellScriptBin "conky-service" ''
+      #!/bin/bash
+      case "$1" in
+        start)
+          echo "Starting conky overlay service..."
+          systemctl --user start conky-overlay.service
+          ;;
+        stop)
+          echo "Stopping conky overlay service..."
+          systemctl --user stop conky-overlay.service
+          ;;
+        restart)
+          echo "Restarting conky overlay service..."
+          systemctl --user restart conky-overlay.service
+          ;;
+        status)
+          echo "Conky overlay service status:"
+          systemctl --user status conky-overlay.service
+          ;;
+        enable)
+          echo "Enabling conky overlay service..."
+          systemctl --user enable conky-overlay.service
+          ;;
+        disable)
+          echo "Disabling conky overlay service..."
+          systemctl --user disable conky-overlay.service
+          ;;
+        *)
+          echo "Usage: conky-service {start|stop|restart|status|enable|disable}"
+          exit 1
+          ;;
+      esac
+    '')
   ];
+
+  # Systemd user service for conky overlay
+  systemd.user.services.conky-overlay = {
+    description = "Conky System Info Overlay";
+    wantedBy = [ "graphical-session.target" ];
+    after = [ "graphical-session.target" ];
+    
+    serviceConfig = {
+      Type = "simple";
+      ExecStart = "${pkgs.conky}/bin/conky -c ${conky-kiosk-config}/share/conky/conky-kiosk.conf";
+      Restart = "always";
+      RestartSec = 5;
+      Environment = [ "DISPLAY=:0" ];
+    };
+    
+    # Only start if X11 is available
+    requisite = [ "graphical-session.target" ];
+  };
+
+  # Enable the user service by default
+  systemd.user.targets.graphical-session.wants = [ "conky-overlay.service" ];
 }

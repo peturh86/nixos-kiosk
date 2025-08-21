@@ -57,5 +57,6 @@
       echo "$$INFO"
       # Show as xmessage popup
       echo "$$INFO" | xmessage -file - -geometry +50+50 -timeout 10 2>/dev/null &
+    '')
   ];
 }

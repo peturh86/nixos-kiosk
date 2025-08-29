@@ -53,26 +53,19 @@ in
       "serial-hostname-map.json".source = config.services.dynamicHostname.mapFile;
     };
 
-    # Set hostname using the derivation script
-    networking.hostName = lib.mkForce (builtins.readFile (pkgs.runCommand "hostname" {} ''
-      ${hostnameScript} > $out
-    ''));
-
-    # Alternative: Use systemd service to set hostname at boot
+    # Set hostname at boot using a systemd oneshot that runs the derived script.
+    # We do NOT set `networking.hostName` at evaluation time because the
+    # hostname can only be determined on the target machine (DMI info).
     systemd.services.set-dynamic-hostname = {
       description = "Set dynamic hostname based on motherboard serial";
       wantedBy = [ "multi-user.target" ];
       after = [ "network.target" ];
       serviceConfig = {
         Type = "oneshot";
-        ExecStart = "${hostnameScript}";
+        # Run the generated script and pipe its output to hostnamectl.
+        ExecStart = ''${pkgs.bash}/bin/bash -c "${hostnameScript} | xargs -r -I{} ${pkgs.systemd}/bin/hostnamectl set-hostname {}"'';
         RemainAfterExit = true;
       };
-      script = ''
-        HOSTNAME=$(${hostnameScript})
-        hostnamectl set-hostname "$HOSTNAME"
-        echo "Set hostname to: $HOSTNAME"
-      '';
     };
   };
 }

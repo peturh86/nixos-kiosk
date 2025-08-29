@@ -7,11 +7,9 @@
     ./apps.nix
 
     ./configurations/system.nix
-    ./configurations/audio-print.nix
     ./configurations/users.nix
     ./configurations/programs.nix
     ./configurations/nixpkgs.nix
-    ./configurations/power.nix
     ./configurations/kiosk-utils.nix
 
     ./modules/ui/xserver-openbox.nix

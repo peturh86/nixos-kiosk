@@ -57,12 +57,12 @@ git clone https://github.com/peturh86/nixos-kiosk.git
 cd nixos-kiosk
 ```
 
-### 3. Run Automated Installation
+### 3. Run Installation
 
-Execute the installation script with auto-confirmation:
+Execute the installation script. If `DISK` is not provided the script will prompt you to select a device:
 
 ```bash
-AUTO=1 ./scripts/install-kiosk.sh
+./scripts/install-kiosk.sh
 ```
 
 The script will:
@@ -124,20 +124,19 @@ Use the hostname management script for easy mapping management:
 Override automatic hostname detection:
 
 ```bash
-HOSTNAME=my-custom-hostname AUTO=1 ./scripts/install-kiosk.sh
+HOSTNAME=my-custom-hostname ./scripts/install-kiosk.sh
 ```
 
 ## Configuration Options
 
 ### Environment Variables
 
-| Variable    | Description                         | Default                         |
-| ----------- | ----------------------------------- | ------------------------------- |
-| `AUTO`      | Enable non-interactive installation | `0` (interactive)               |
-| `DISK`      | Target installation disk            | Auto-detected (largest disk)    |
-| `HOSTNAME`  | System hostname                     | Derived from motherboard serial |
-| `ROOT_HASH` | Root password hash                  | No password                     |
-| `USER_HASH` | User password hash                  | No password                     |
+| Variable    | Description              | Default                         |
+| ----------- | ------------------------ | ------------------------------- |
+| `DISK`      | Target installation disk | Auto-detected (largest disk)    |
+| `HOSTNAME`  | System hostname          | Derived from motherboard serial |
+| `ROOT_HASH` | Root password hash       | No password                     |
+| `USER_HASH` | User password hash       | No password                     |
 
 ### Disk Configuration
 
@@ -153,9 +152,9 @@ The flake provides multiple disk configurations for different hardware:
 **Manual disk specification:**
 ```bash
 # Install to specific disk
-DISK=/dev/sdb AUTO=1 ./scripts/install-kiosk.sh
+DISK=/dev/sdb ./scripts/install-kiosk.sh
 
-# The script automatically selects the appropriate flake configuration
+# The script will automatically select the appropriate flake configuration
 ```
 
 **Custom disk configuration:**
@@ -178,7 +177,7 @@ mkpasswd -m sha-512
 Set during installation:
 
 ```bash
-ROOT_HASH='$6$...' USER_HASH='$6$...' AUTO=1 ./scripts/install-kiosk.sh
+ROOT_HASH='$6$...' USER_HASH='$6$...' ./scripts/install-kiosk.sh
 ```
 
 ## System Configuration
@@ -314,7 +313,7 @@ sudo nix-env -u
 lsblk -d
 
 # Specify disk manually
-DISK=/dev/sda AUTO=1 ./scripts/install-kiosk.sh
+DISK=/dev/sda ./scripts/install-kiosk.sh
 ```
 
 **No motherboard serial found:**
@@ -324,7 +323,7 @@ cat /sys/class/dmi/id/board_serial
 cat /sys/class/dmi/id/product_serial
 
 # Set hostname manually
-HOSTNAME=kiosk-01 AUTO=1 ./scripts/install-kiosk.sh
+HOSTNAME=kiosk-01 ./scripts/install-kiosk.sh
 ```
 
 **jq command not found:**

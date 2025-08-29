@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Safety: require AUTO=1 to proceed (you can also export DISK/HOSTNAME/ROOT_HASH/USER_HASH)
-: "${AUTO:=0}"
+# Environment: you can export DISK/HOSTNAME/ROOT_HASH/USER_HASH to override defaults
 
 # Ensure flakes work in the ISO shell
 export NIX_CONFIG="experimental-features = nix-command flakes"
@@ -10,9 +9,9 @@ export NIX_CONFIG="experimental-features = nix-command flakes"
 repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_dir"
 
-# Interactive disk chooser (very early): if DISK is not set and AUTO!=1, show available
+# Interactive disk chooser (very early): if DISK is not set, show available
 # block devices and prompt the user to pick one by number or enter a /dev path.
-if [[ -z "${DISK:-}" && "${AUTO:-0}" != "1" ]]; then
+if [[ -z "${DISK:-}" ]]; then
   echo "Available block devices:";
   declare -a _dev_names=()
   i=0
@@ -119,9 +118,6 @@ if [[ -z "${HOSTNAME:-}" ]]; then
 fi
 
 echo ">>> Installing kiosk to ${DISK} with hostname ${HOSTNAME}"
-if [[ "$AUTO" != "1" ]]; then
-  echo "Set AUTO=1 to proceed non-interactively."; exit 1
-fi
 
 export DISK HOSTNAME
 

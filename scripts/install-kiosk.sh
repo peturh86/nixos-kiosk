@@ -52,9 +52,32 @@ fi
 
 export DISK HOSTNAME
 
+# Map disk device to flake configuration name
+case "$DISK" in
+  "/dev/sda")
+    FLAKE_CONFIG="kiosk"
+    ;;
+  "/dev/sdb")
+    FLAKE_CONFIG="kiosk-sdb"
+    ;;
+  "/dev/sdc")
+    FLAKE_CONFIG="kiosk-sdc"
+    ;;
+  "/dev/nvme0n1")
+    FLAKE_CONFIG="kiosk-nvme"
+    ;;
+  *)
+    echo "Warning: Disk $DISK not pre-configured in flake.nix"
+    echo "Using default configuration (sda) - you may need to modify flake.nix"
+    FLAKE_CONFIG="kiosk"
+    ;;
+esac
+
+echo ">>> Using flake configuration: $FLAKE_CONFIG"
+
 # Wipe/partition/format (from disko), then mount
-nix run --impure github:nix-community/disko -- --mode disko --flake .#kiosk
-nix run --impure github:nix-community/disko -- --mode mount --flake .#kiosk
+nix run --impure github:nix-community/disko -- --mode disko --flake .#$FLAKE_CONFIG
+nix run --impure github:nix-community/disko -- --mode mount --flake .#$FLAKE_CONFIG
 
 # Copy assets to the installed system
 if [[ -d "$repo_dir/assets" ]]; then
@@ -64,7 +87,7 @@ if [[ -d "$repo_dir/assets" ]]; then
 fi
 
 # Install (no root password unless ROOT_HASH is exported)
-nixos-install --impure --no-root-passwd --flake .#kiosk
+nixos-install --impure --no-root-passwd --flake .#$FLAKE_CONFIG
 
 # Reboot into the installed system
 reboot

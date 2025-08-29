@@ -68,9 +68,11 @@ AUTO=1 ./scripts/install-kiosk.sh
 The script will:
 - Detect the target disk automatically (largest available)
 - Read motherboard serial number for hostname derivation
-- Partition and format the disk using Disko
-- Install NixOS with the kiosk configuration
+- Partition and format the disk using Disko (via flake configuration)
+- Install NixOS with the kiosk configuration (via flake)
 - Reboot into the installed system
+
+**Note:** The installation uses Nix flakes for reproducible builds. The appropriate disk configuration is automatically selected based on the detected disk device.
 
 ## Hostname Management
 
@@ -137,13 +139,29 @@ HOSTNAME=my-custom-hostname AUTO=1 ./scripts/install-kiosk.sh
 | `ROOT_HASH` | Root password hash                  | No password                     |
 | `USER_HASH` | User password hash                  | No password                     |
 
-### Manual Disk Selection
+### Disk Configuration
 
-Specify target disk explicitly:
+The flake provides multiple disk configurations for different hardware:
 
+| Disk Device | Flake Configuration | Description |
+|-------------|-------------------|-------------|
+| `/dev/sda` | `kiosk` (default) | Primary SATA disk |
+| `/dev/sdb` | `kiosk-sdb` | Secondary SATA disk |
+| `/dev/sdc` | `kiosk-sdc` | Tertiary SATA disk |
+| `/dev/nvme0n1` | `kiosk-nvme` | NVMe SSD |
+
+**Manual disk specification:**
 ```bash
-DISK=/dev/sda AUTO=1 ./scripts/install-kiosk.sh
+# Install to specific disk
+DISK=/dev/sdb AUTO=1 ./scripts/install-kiosk.sh
+
+# The script automatically selects the appropriate flake configuration
 ```
+
+**Custom disk configuration:**
+If your disk isn't pre-configured, you can:
+1. Add a new configuration to `flake.nix`
+2. Or modify the existing disk layout for your needs
 
 ### Setting Passwords
 
@@ -394,11 +412,32 @@ Test configuration changes without full installation:
 # Build configuration
 sudo nixos-rebuild build
 
+# Build specific flake configuration
+nix build .#nixosConfigurations.kiosk.config.system.build.toplevel
+
 # Test in VM (requires VirtualBox)
 sudo nixos-rebuild build-vm
 
 # Switch to new configuration
 sudo nixos-rebuild switch
+```
+
+### Flake Development
+
+The project uses Nix flakes for reproducible builds:
+
+```bash
+# Enter development shell
+nix develop
+
+# List available configurations
+nix flake show
+
+# Build specific disk configuration
+nix build .#nixosConfigurations.kiosk-sdb
+
+# Update flake inputs
+nix flake update
 ```
 
 ### Modifying Configuration
@@ -419,6 +458,7 @@ Edit NixOS configuration files:
 ## File Structure
 
 ```
+├── flake.nix                 # Nix flake definition with disk configurations
 ├── configuration.nix          # Main NixOS configuration
 ├── apps.nix                   # Application imports
 ├── nas-setup.nix             # NAS configuration

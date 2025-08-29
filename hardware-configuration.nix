@@ -7,7 +7,7 @@
   # evaluated when a full hardware config isn't present.
 
   # Example: keep /boot as default, no extra kernel modules here.
-  boot.kernelModules = lib.optionalList false [];
+  # boot.kernelModules = lib.optionalList false [];
 
   # No-op; override in real installs if needed.
 }

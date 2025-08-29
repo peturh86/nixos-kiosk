@@ -21,6 +21,7 @@
     ./modules/kiosk/autostart.nix
     ./modules/kiosk/autostart-add-tint2.nix
   ./modules/kiosk/x-session-commands.nix
+  ./modules/hostname/runtime-hostname.nix
   ];
 
   # This value determines the NixOS release from which the default
@@ -34,5 +35,6 @@
   # Hostname is handled by the installer; installed system contains
   # /etc/nixos/assets/serial-hostname-map.json and derive-hostname.sh
   # which will set the hostname at first boot if needed.
+  services.runtimeHostname.enable = true;
 
 }

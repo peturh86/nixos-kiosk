@@ -7,7 +7,6 @@
     ./apps.nix
 
     ./configurations/system.nix
-    ./configurations/desktop.nix
     ./configurations/audio-print.nix
     ./configurations/users.nix
     ./configurations/programs.nix

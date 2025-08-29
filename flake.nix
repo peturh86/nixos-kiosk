@@ -34,6 +34,13 @@
                   content = {
                     type = "gpt";
                     partitions = {
+                      # Small bios_grub partition so GRUB can embed on GPT if
+                      # the machine boots in BIOS mode. Size is minimal (1M).
+                      bios = {
+                        size = "1M";
+                        type = "EF02"; # bios_grub
+                        content = { type = "raw"; };
+                      };
                       ESP = {
                         size = "512M";
                         type = "EF00";
@@ -63,6 +70,7 @@
     in {
       # Default kiosk configuration (uses /dev/sda)
       nixosConfigurations.kiosk = mkKioskConfig "/dev/sda";
+      
 
       # Alternative configurations for different disks
       nixosConfigurations.kiosk-sdb = mkKioskConfig "/dev/sdb";

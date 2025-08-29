@@ -1,8 +1,12 @@
 { config, pkgs, ... }:
 {
-  boot.loader.grub.enable = true;
-  boot.loader.grub.device = "/dev/sda";
-  boot.loader.grub.useOSProber = true;
+  # Use systemd-boot (UEFI) to match the GPT + ESP layout created by the
+  # flake's Disko configuration. Installing legacy GRUB onto a GPT disk
+  # without a bios_grub partition will fail (embedding not possible).
+  boot.loader.grub.enable = false;
+  boot.loader.systemd-boot.enable = true;
+  # Allow the installer to write EFI variables (needed to register the boot entry)
+  boot.loader.efi.canTouchEfiVariables = true;
 
   # Kernel modules for serial/USB devices (scales, etc.)
   boot.kernelModules = [ "usbserial" "ftdi_sio" "pl2303" "cp210x" ];

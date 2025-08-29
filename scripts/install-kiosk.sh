@@ -156,19 +156,24 @@ echo ">>> Installing kiosk to ${DISK} with hostname ${HOSTNAME}"
 
 export DISK HOSTNAME
 
-# Map disk device to flake configuration name
+# Detect firmware mode: UEFI if /sys/firmware/efi exists, otherwise BIOS
+if [[ -d /sys/firmware/efi ]]; then
+  FW_MODE="uefi"
+else
+  FW_MODE="bios"
+fi
+
+# Map disk device to flake configuration name (preferring UEFI configs)
 case "$DISK" in
   "/dev/sda")
     FLAKE_CONFIG="kiosk"
     ;;
-  "/dev/sdb")
-    FLAKE_CONFIG="kiosk-sdb"
-    ;;
-  "/dev/sdc")
-    FLAKE_CONFIG="kiosk-sdc"
-    ;;
-  "/dev/nvme0n1")
-    FLAKE_CONFIG="kiosk-nvme"
+  "/dev/sdb"|"/dev/sdc"|"/dev/nvme0n1")
+    case "$DISK" in
+      "/dev/sdb") FLAKE_CONFIG="kiosk-sdb" ;; 
+      "/dev/sdc") FLAKE_CONFIG="kiosk-sdc" ;; 
+      "/dev/nvme0n1") FLAKE_CONFIG="kiosk-nvme" ;; 
+    esac
     ;;
   *)
     echo "Warning: Disk $DISK not pre-configured in flake.nix"

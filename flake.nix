@@ -45,17 +45,24 @@
                       ESP = {
                         size = "512M";
                         type = "EF00";
+                        # Partition label (PARTLABEL) for human-friendly identification
+                        partlabel = "disk-main-esp";
                         content = {
                           type = "filesystem";
                           format = "vfat";
+                          # Filesystem label for /dev/disk/by-label
+                          label = "disk-main-esp";
                           mountpoint = "/boot";
                         };
                       };
                       root = {
                         size = "100%";
+                        partlabel = "disk-main-root";
                         content = {
                           type = "filesystem";
                           format = "ext4";
+                          # Filesystem label (helpful) and mountpoint
+                          label = "disk-main-root";
                           mountpoint = "/";
                         };
                       };

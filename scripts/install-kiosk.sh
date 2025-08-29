@@ -195,6 +195,43 @@ if [[ -d "$repo_dir/assets" ]]; then
   cp -r "$repo_dir/assets/"* /mnt/etc/nixos/assets/ 2>/dev/null || true
 fi
 
+# Generate hardware-configuration.nix (uses blkid/UUIDs) and ensure root is
+# referenced by UUID in the generated file to avoid by-partlabel mismatches.
+echo ">>> Generating NixOS hardware configuration (nixos-generate-config)..."
+if command -v nixos-generate-config >/dev/null 2>&1; then
+  nixos-generate-config --root /mnt || true
+
+  HW_FILE="/mnt/etc/nixos/hardware-configuration.nix"
+  if [[ -f "$HW_FILE" ]]; then
+    # Check if fileSystems."/".device is using an explicit UUID
+    if ! grep -q 'fileSystems."/".device = "UUID=' "$HW_FILE"; then
+      echo ">>> Ensuring root device is referenced by UUID in $HW_FILE"
+      # Find the root device mounted on /mnt
+      ROOT_DEV=$(findmnt -n -o SOURCE --target /mnt || true)
+      if [[ -n "$ROOT_DEV" ]]; then
+        ROOT_UUID=$(blkid -s UUID -o value "$ROOT_DEV" || true)
+        if [[ -n "$ROOT_UUID" ]]; then
+          # Replace or add the fileSystems."/".device line
+          if grep -q 'fileSystems."/".device' "$HW_FILE"; then
+            sed -i -E "s|fileSystems\.\"/\"\.device = \"[^"]*\";|fileSystems.\"/\".device = \"UUID=${ROOT_UUID}\";|" "$HW_FILE"
+          else
+            # Inject a minimal fileSystems entry near the top of the file
+            sed -i '1s;^;{ /* hardware config added by installer */ }\n;' "$HW_FILE"
+          fi
+        else
+          echo "Warning: could not determine UUID for $ROOT_DEV"
+        fi
+      else
+        echo "Warning: could not find root device mounted at /mnt"
+      fi
+    fi
+  else
+    echo "Warning: $HW_FILE not generated"
+  fi
+else
+  echo "nixos-generate-config not available in this environment; skipping hardware config generation"
+fi
+
 # Install (no root password unless ROOT_HASH is exported)
 nixos-install --impure --no-root-passwd --flake .#$FLAKE_CONFIG
 

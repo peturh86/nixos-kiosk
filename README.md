@@ -143,12 +143,12 @@ HOSTNAME=my-custom-hostname AUTO=1 ./scripts/install-kiosk.sh
 
 The flake provides multiple disk configurations for different hardware:
 
-| Disk Device | Flake Configuration | Description |
-|-------------|-------------------|-------------|
-| `/dev/sda` | `kiosk` (default) | Primary SATA disk |
-| `/dev/sdb` | `kiosk-sdb` | Secondary SATA disk |
-| `/dev/sdc` | `kiosk-sdc` | Tertiary SATA disk |
-| `/dev/nvme0n1` | `kiosk-nvme` | NVMe SSD |
+| Disk Device    | Flake Configuration | Description         |
+| -------------- | ------------------- | ------------------- |
+| `/dev/sda`     | `kiosk` (default)   | Primary SATA disk   |
+| `/dev/sdb`     | `kiosk-sdb`         | Secondary SATA disk |
+| `/dev/sdc`     | `kiosk-sdc`         | Tertiary SATA disk  |
+| `/dev/nvme0n1` | `kiosk-nvme`        | NVMe SSD            |
 
 **Manual disk specification:**
 ```bash

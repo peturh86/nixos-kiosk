@@ -24,6 +24,7 @@
     ./modules/kiosk/autostart.nix
     ./modules/kiosk/autostart-add-tint2.nix
     ./modules/kiosk/x-session-commands.nix
+    ./modules/hostname/dynamic-hostname.nix
   ];
 
   # This value determines the NixOS release from which the default
@@ -33,5 +34,11 @@
   # Before changing this value read the documentation for this option
   # (e.g. man configuration.nix or on https://nixos.org/nixos/options.html).
   system.stateVersion = "25.05"; # Did you read the comment?
+
+  # Dynamic hostname configuration
+  services.dynamicHostname = {
+    enable = true;
+    mapFile = ./assets/serial-hostname-map.json;
+  };
 
 }

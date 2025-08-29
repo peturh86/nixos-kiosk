@@ -96,6 +96,27 @@ For controlled hostname assignment, edit `assets/serial-hostname-map.json`:
 
 **Format**: `"SERIAL_NUMBER": "DESIRED_HOSTNAME"`
 
+### Managing Hostname Mappings
+
+Use the hostname management script for easy mapping management:
+
+```bash
+# List all current mappings
+./scripts/manage-hostnames.sh list
+
+# Add a new mapping
+./scripts/manage-hostnames.sh add ABC123 kiosk-01
+
+# Remove a mapping
+./scripts/manage-hostnames.sh remove ABC123
+
+# Get hostname for a specific serial
+./scripts/manage-hostnames.sh get ABC123
+
+# Test hostname derivation
+./scripts/manage-hostnames.sh test ABC123
+```
+
 ### Manual Hostname Override
 
 Override automatic hostname detection:
@@ -161,15 +182,64 @@ ROOT_HASH='$6$...' USER_HASH='$6$...' AUTO=1 ./scripts/install-kiosk.sh
 - **Keyboard Layout**: Icelandic
 
 ### Network
-- **Manager**: NetworkManager
+- **Manager**: NetworkManager (automatically manages wired and wireless connections)
+- **Wired**: Automatic DHCP configuration (plug-and-play)
 - **WiFi**: Supported with WPA supplicant
-- **Ethernet**: DHCP auto-configuration
+- **Firewall**: SSH (port 22) allowed by default
+- **User Permissions**: Kiosk user has NetworkManager access
 
 ## Post-Installation Setup
 
 ### Network Configuration
 
-The system uses NetworkManager for network configuration:
+The system uses NetworkManager for network configuration. DHCP is automatically configured for wired connections.
+
+#### DHCP Wired Networking
+
+**Automatic DHCP (Default):**
+The system automatically obtains an IP address via DHCP on wired connections. No additional configuration is needed.
+
+**Check wired connection status:**
+```bash
+# Show all network devices and their status
+nmcli device status
+
+# Show detailed connection information
+nmcli connection show
+
+# Show IP address information
+ip addr show
+```
+
+**Manual wired connection setup (if needed):**
+```bash
+# List available Ethernet devices
+nmcli device
+
+# Create a new wired connection (if auto-detection fails)
+sudo nmcli connection add type ethernet con-name "Wired Connection" ifname eth0
+
+# Bring up the connection
+sudo nmcli connection up "Wired Connection"
+
+# Set connection to auto-connect
+sudo nmcli connection modify "Wired Connection" connection.autoconnect yes
+```
+
+**Static IP configuration (optional):**
+```bash
+# Create a static IP connection
+sudo nmcli connection add type ethernet con-name "Static Wired" ifname eth0 \
+  ipv4.addresses "192.168.1.100/24" \
+  ipv4.gateway "192.168.1.1" \
+  ipv4.dns "8.8.8.8,8.8.4.4" \
+  ipv4.method manual
+
+# Activate the static connection
+sudo nmcli connection up "Static Wired"
+```
+
+#### WiFi Configuration
 
 ```bash
 # Connect to WiFi
@@ -177,6 +247,18 @@ nmcli device wifi connect YOUR_SSID password YOUR_PASSWORD
 
 # Check connection status
 nmcli connection show
+```
+
+**WiFi troubleshooting:**
+```bash
+# List available WiFi networks
+nmcli device wifi list
+
+# Show WiFi connection details
+nmcli device wifi show
+
+# Restart WiFi
+sudo nmcli radio wifi off && sudo nmcli radio wifi on
 ```
 
 ### User Management
@@ -248,6 +330,40 @@ sudo systemctl restart NetworkManager
 # Check network status
 ip addr show
 nmcli device status
+
+# Check if DHCP is working
+journalctl -u NetworkManager -n 20
+
+# Test network connectivity
+ping -c 3 8.8.8.8
+
+# Check DNS resolution
+nslookup google.com
+```
+
+**Wired connection issues:**
+```bash
+# Check Ethernet link status
+ethtool eth0
+
+# Check cable connection
+nmcli device show eth0
+
+# Force DHCP renewal
+sudo dhclient -r eth0
+sudo dhclient eth0
+```
+
+**WiFi connection issues:**
+```bash
+# Check WiFi device status
+nmcli radio wifi
+
+# Rescan for networks
+nmcli device wifi rescan
+
+# Check signal strength
+nmcli device wifi list
 ```
 
 ### Application Issues
@@ -318,12 +434,14 @@ Edit NixOS configuration files:
 ├── modules/                  # Custom NixOS modules
 │   ├── ui/                  # Desktop environment
 │   ├── panel/               # Tint2 configuration
+│   ├── hostname/            # Dynamic hostname management
 │   └── ...
 ├── desktop/                  # Desktop session files
 ├── assets/                   # Static assets
 │   └── serial-hostname-map.json  # Hostname mappings
 └── scripts/                  # Installation and utility scripts
-    └── install-kiosk.sh     # Automated installation
+    ├── install-kiosk.sh     # Automated installation
+    └── manage-hostnames.sh  # Hostname mapping management
 ```
 
 ## Security Considerations

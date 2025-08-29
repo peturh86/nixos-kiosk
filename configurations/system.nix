@@ -7,7 +7,6 @@
   # Kernel modules for serial/USB devices (scales, etc.)
   boot.kernelModules = [ "usbserial" "ftdi_sio" "pl2303" "cp210x" ];
 
-  networking.hostName = "fband";
   networking.networkmanager.enable = true;
 
   time.timeZone = "Atlantic/Reykjavik";

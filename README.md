@@ -1,89 +1,352 @@
-# NixOS Kiosk Configuration
+# NixOS Kiosk System
 
-A clean, modular NixOS configuration for kiosk deployments with Wine applications.
+A NixOS-based kiosk system designed for automated deployment with hardware-based hostname derivation and application lockdown.
 
-## Structure
+## Overview
 
-```
-├── configuration.nix              # Main entry point
-├── hardware-configuration.nix     # Auto-generated hardware config
-├── nas-setup.nix                  # NAS/SMB mounting
-│
-├── configurations/                # Core system configuration
-│   ├── system.nix                # Boot, kernel, networking, hostname
-│   ├── users.nix                 # User accounts and permissions
-│   ├── programs.nix              # System programs (Firefox, etc.)
-│   ├── nixpkgs.nix               # Package sources and overlays
-│   ├── hardware.nix              # Audio, printing, power management
-│   └── kiosk-utils.nix           # Management tools and monitoring
-│
-├── desktop/                       # Desktop environment
-│   └── session.nix               # Unified Openbox + LightDM + autostart
-│
-├── apps/                          # Application configurations
-│   ├── browsers.nix              # Chromium configuration
-│   ├── IPS-clean.nix             # Windows IPS application via Wine
-│   ├── SAP.nix                   # SAP client configuration
-│   ├── ssh.nix                   # SSH client setup
-│   ├── git.nix                   # Git configuration
-│   └── utils.nix                 # System utilities
-│
-├── modules/                       # Reusable NixOS modules
-│   ├── ui/openbox-menu.nix       # Right-click context menu
-│   └── apps/desktop-entries.nix  # .desktop files for applications
-│
-├── scripts/                       # Management scripts
-│   └── set-hostname-from-snipeit.sh  # Hostname management via Snipe-IT API
-│
-└── assets/                        # Static files (icons, configs)
-```
+This NixOS configuration creates a kiosk system with:
+- **Openbox** window manager for lightweight desktop environment
+- **LightDM** display manager with auto-login
+- **Chromium** and **Firefox** browsers
+- Custom applications (IPS, SAP) via Wine
+- Hardware-based hostname assignment using motherboard serial numbers
+- Automated disk partitioning with Disko
+- Network management with NetworkManager
 
-## Key Features
+## System Requirements
 
-- **Minimal Desktop**: Openbox + LXPanel for normal desktop feel
-- **Wine Integration**: 32-bit Wine environment for Windows applications
-- **System Monitoring**: Conky overlay showing hostname, IP, uptime
-- **Power Management**: 10min display off, 20min suspend
-- **Remote Management**: Hostname setting via Snipe-IT API
-- **Kiosk Security**: No screen locking, controlled application access
+### Hardware
+- x86_64 compatible system
+- At least 4GB RAM (8GB recommended)
+- 20GB+ storage
+- Motherboard with accessible serial number (for hostname derivation)
 
-## Management Commands
+### Software
+- NixOS 25.05 or later
+- `jq` command-line JSON processor
+- USB boot media for installation
+
+## Quick Deployment
+
+### 1. Prepare Installation Media
+
+Download the latest NixOS ISO and create a bootable USB drive:
 
 ```bash
-# System monitoring
-kiosk-status                    # Show system status
-conky-service status           # Check system info overlay
+# On Linux/macOS
+sudo dd if=nixos.iso of=/dev/sdX bs=4M status=progress
 
-# Wine management  
-restart-wine                   # Restart Wine subsystem
-wine-env                       # Start Wine environment shell
-
-# Application shortcuts
-ips                           # Launch IPS application
-firefox-kiosk                 # Launch browser in kiosk mode
-
-# Hostname management
-set-hostname-from-snipeit     # Update hostname from Snipe-IT
+# On Windows (using Rufus or similar)
+# Use Rufus to create bootable USB from nixos.iso
 ```
 
-## Deployment
+### 2. Boot and Clone Repository
 
-1. **Base installation**: Standard NixOS installation
-2. **Apply configuration**: `sudo nixos-rebuild switch`
-3. **Set hostname**: Configure Snipe-IT API credentials and run hostname script
-4. **User login**: System ready for kiosk use
+Boot from the USB drive and clone this repository:
 
-## Configuration Notes
+```bash
+# Set up networking (if needed)
+sudo systemctl start wpa_supplicant
+wpa_cli -i wlan0 add_network
+wpa_cli -i wlan0 set_network 0 ssid "YOUR_WIFI_SSID"
+wpa_cli -i wlan0 set_network 0 psk "YOUR_WIFI_PASSWORD"
+wpa_cli -i wlan0 enable_network 0
 
-- Hostname is set declaratively in `configurations/system.nix`
-- Use `set-hostname-from-snipeit` script to update hostname dynamically
-- Conky overlay auto-starts with session
-- Wine prefixes are created per-application
-- All management tools available in system PATH
+# Clone the repository
+git clone https://github.com/peturh86/nixos-kiosk.git
+cd nixos-kiosk
+```
 
-## Customization
+### 3. Run Automated Installation
 
-- **Panel**: Switch between LXPanel and Tint2 in `desktop/session.nix`
-- **Applications**: Add new apps in `apps/` directory
-- **Monitoring**: Modify conky config in `configurations/kiosk-utils.nix`
-- **Security**: Adjust lockdown settings in individual configuration files
+Execute the installation script with auto-confirmation:
+
+```bash
+AUTO=1 ./scripts/install-kiosk.sh
+```
+
+The script will:
+- Detect the target disk automatically (largest available)
+- Read motherboard serial number for hostname derivation
+- Partition and format the disk using Disko
+- Install NixOS with the kiosk configuration
+- Reboot into the installed system
+
+## Hostname Management
+
+### Automatic Hostname Assignment
+
+The system automatically derives hostnames from motherboard serial numbers:
+
+1. **Primary Source**: `/sys/class/dmi/id/board_serial`
+2. **Fallback Source**: `/sys/class/dmi/id/product_serial`
+3. **Naming Pattern**: `wh-<last4chars>` (e.g., `wh-1234`)
+
+### Custom Hostname Mapping
+
+For controlled hostname assignment, edit `assets/serial-hostname-map.json`:
+
+```json
+{
+  "ABCDEF123456": "kiosk-01",
+  "XYZ987654321": "kiosk-02",
+  "1234ABCD5678": "kiosk-03"
+}
+```
+
+**Format**: `"SERIAL_NUMBER": "DESIRED_HOSTNAME"`
+
+### Manual Hostname Override
+
+Override automatic hostname detection:
+
+```bash
+HOSTNAME=my-custom-hostname AUTO=1 ./scripts/install-kiosk.sh
+```
+
+## Configuration Options
+
+### Environment Variables
+
+| Variable    | Description                         | Default                         |
+| ----------- | ----------------------------------- | ------------------------------- |
+| `AUTO`      | Enable non-interactive installation | `0` (interactive)               |
+| `DISK`      | Target installation disk            | Auto-detected (largest disk)    |
+| `HOSTNAME`  | System hostname                     | Derived from motherboard serial |
+| `ROOT_HASH` | Root password hash                  | No password                     |
+| `USER_HASH` | User password hash                  | No password                     |
+
+### Manual Disk Selection
+
+Specify target disk explicitly:
+
+```bash
+DISK=/dev/sda AUTO=1 ./scripts/install-kiosk.sh
+```
+
+### Setting Passwords
+
+Generate password hashes:
+
+```bash
+# Generate root password hash
+mkpasswd -m sha-512
+
+# Generate user password hash
+mkpasswd -m sha-512
+```
+
+Set during installation:
+
+```bash
+ROOT_HASH='$6$...' USER_HASH='$6$...' AUTO=1 ./scripts/install-kiosk.sh
+```
+
+## System Configuration
+
+### Desktop Environment
+- **Window Manager**: Openbox (lightweight, configurable)
+- **Panel**: Tint2 (taskbar and system tray)
+- **Display Manager**: LightDM with auto-login
+- **Auto-login User**: `fband`
+
+### Applications
+- **Browsers**: Chromium, Firefox
+- **Custom Apps**: IPS, SAP (via Wine)
+- **Utilities**: SSH client, Git, various system tools
+
+### Localization
+- **Timezone**: Atlantic/Reykjavik (Iceland)
+- **Locale**: Icelandic (is_IS.UTF-8)
+- **Keyboard Layout**: Icelandic
+
+### Network
+- **Manager**: NetworkManager
+- **WiFi**: Supported with WPA supplicant
+- **Ethernet**: DHCP auto-configuration
+
+## Post-Installation Setup
+
+### Network Configuration
+
+The system uses NetworkManager for network configuration:
+
+```bash
+# Connect to WiFi
+nmcli device wifi connect YOUR_SSID password YOUR_PASSWORD
+
+# Check connection status
+nmcli connection show
+```
+
+### User Management
+
+The system creates a kiosk user `fband` with auto-login. To add additional users:
+
+```bash
+# As root or with sudo
+useradd -m newuser
+passwd newuser
+```
+
+### Application Updates
+
+Update the system and applications:
+
+```bash
+# Update NixOS channels
+sudo nix-channel --update
+
+# Rebuild and switch to new configuration
+sudo nixos-rebuild switch
+
+# Update specific packages
+sudo nix-env -u
+```
+
+## Troubleshooting
+
+### Installation Issues
+
+**No disk detected:**
+```bash
+# Check available disks
+lsblk -d
+
+# Specify disk manually
+DISK=/dev/sda AUTO=1 ./scripts/install-kiosk.sh
+```
+
+**No motherboard serial found:**
+```bash
+# Check serial availability
+cat /sys/class/dmi/id/board_serial
+cat /sys/class/dmi/id/product_serial
+
+# Set hostname manually
+HOSTNAME=kiosk-01 AUTO=1 ./scripts/install-kiosk.sh
+```
+
+**jq command not found:**
+```bash
+# Install jq in the live environment
+nix-env -i jq
+```
+
+### Boot Issues
+
+**System doesn't boot after installation:**
+- Check boot order in BIOS/UEFI
+- Verify disk partitioning: `fdisk -l /dev/sda`
+- Reinstall bootloader: `sudo nixos-rebuild boot`
+
+**Network not working:**
+```bash
+# Restart NetworkManager
+sudo systemctl restart NetworkManager
+
+# Check network status
+ip addr show
+nmcli device status
+```
+
+### Application Issues
+
+**Wine applications not starting:**
+```bash
+# Check Wine installation
+wine --version
+
+# Reinstall Wine applications
+sudo nixos-rebuild switch
+```
+
+**Browser issues:**
+```bash
+# Reset browser configuration
+rm -rf ~/.config/chromium/*
+rm -rf ~/.mozilla/firefox/*.default
+```
+
+## Development
+
+### Local Testing
+
+Test configuration changes without full installation:
+
+```bash
+# Build configuration
+sudo nixos-rebuild build
+
+# Test in VM (requires VirtualBox)
+sudo nixos-rebuild build-vm
+
+# Switch to new configuration
+sudo nixos-rebuild switch
+```
+
+### Modifying Configuration
+
+Edit NixOS configuration files:
+
+- `configuration.nix` - Main system configuration
+- `configurations/` - Modular configuration files
+- `apps/` - Application-specific configurations
+- `modules/` - Custom NixOS modules
+
+### Adding Applications
+
+1. Create new app configuration in `apps/`
+2. Import in `apps.nix`
+3. Rebuild: `sudo nixos-rebuild switch`
+
+## File Structure
+
+```
+├── configuration.nix          # Main NixOS configuration
+├── apps.nix                   # Application imports
+├── nas-setup.nix             # NAS configuration
+├── configurations/           # System configurations
+│   ├── system.nix           # Boot, networking, localization
+│   ├── desktop.nix          # X11, Openbox, auto-login
+│   ├── users.nix            # User accounts
+│   └── ...
+├── apps/                     # Application configurations
+│   ├── browsers.nix         # Chromium, Firefox
+│   ├── IPS.nix             # IPS application
+│   └── ...
+├── modules/                  # Custom NixOS modules
+│   ├── ui/                  # Desktop environment
+│   ├── panel/               # Tint2 configuration
+│   └── ...
+├── desktop/                  # Desktop session files
+├── assets/                   # Static assets
+│   └── serial-hostname-map.json  # Hostname mappings
+└── scripts/                  # Installation and utility scripts
+    └── install-kiosk.sh     # Automated installation
+```
+
+## Security Considerations
+
+- **Auto-login**: Enabled for kiosk functionality
+- **No root password**: Set during installation if needed
+- **Firewall**: Configured via NixOS defaults
+- **User permissions**: Kiosk user has limited sudo access
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make changes and test locally
+4. Submit a pull request
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Support
+
+For issues and questions:
+- Check the troubleshooting section
+- Review NixOS documentation: https://nixos.org/manual/nixos/stable/
+- Open an issue on GitHub

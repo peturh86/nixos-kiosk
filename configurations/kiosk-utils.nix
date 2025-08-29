@@ -64,9 +64,6 @@ in
     pkgs.xorg.xmessage
     conky-kiosk-config
     
-    # Hostname management script
-    (pkgs.writeShellScriptBin "set-hostname-from-snipeit" (builtins.readFile ../scripts/set-hostname-from-snipeit.sh))
-    
     # Simple Wine restart utility
     (pkgs.writeShellScriptBin "restart-wine" ''
       #!/bin/bash

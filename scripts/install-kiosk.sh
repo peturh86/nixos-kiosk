@@ -9,6 +9,41 @@ export NIX_CONFIG="experimental-features = nix-command flakes"
 repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_dir"
 
+# Ensure assets dir exists and contains derive-hostname script used at first boot
+mkdir -p "$repo_dir/assets"
+cat > "$repo_dir/assets/derive-hostname.sh" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Try to get motherboard serial
+serial=""
+if [[ -r /sys/class/dmi/id/board_serial ]]; then
+  serial=$(cat /sys/class/dmi/id/board_serial | tr -d '[:space:]')
+elif [[ -r /sys/class/dmi/id/product_serial ]]; then
+  serial=$(cat /sys/class/dmi/id/product_serial | tr -d '[:space:]')
+fi
+
+if [[ -z "$serial" ]]; then
+  echo "fband"
+  exit 0
+fi
+
+# Check for JSON mapping file
+map_file="/etc/nixos/assets/serial-hostname-map.json"
+if [[ -f "$map_file" ]] && command -v jq >/dev/null 2>&1; then
+  mapped=$(jq -r --arg s "$serial" '.[$s] // empty' "$map_file")
+  if [[ -n "$mapped" ]]; then
+    echo "$mapped"
+    exit 0
+  fi
+fi
+
+# Fallback: generate hostname from last 4 chars of serial
+suffix="${serial: -4}"
+echo "wh-${suffix}"
+EOF
+chmod +x "$repo_dir/assets/derive-hostname.sh" || true
+
 # Interactive disk chooser (very early): if DISK is not set, show available
 # block devices and prompt the user to pick one by number or enter a /dev path.
 if [[ -z "${DISK:-}" ]]; then

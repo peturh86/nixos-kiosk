@@ -20,8 +20,7 @@
     ./modules/apps/desktop-entries.nix
     ./modules/kiosk/autostart.nix
     ./modules/kiosk/autostart-add-tint2.nix
-    ./modules/kiosk/x-session-commands.nix
-    ./modules/hostname/dynamic-hostname.nix
+  ./modules/kiosk/x-session-commands.nix
   ];
 
   # This value determines the NixOS release from which the default
@@ -32,10 +31,8 @@
   # (e.g. man configuration.nix or on https://nixos.org/nixos/options.html).
   system.stateVersion = "25.05"; # Did you read the comment?
 
-  # Dynamic hostname configuration
-  services.dynamicHostname = {
-    enable = true;
-    mapFile = ./assets/serial-hostname-map.json;
-  };
+  # Hostname is handled by the installer; installed system contains
+  # /etc/nixos/assets/serial-hostname-map.json and derive-hostname.sh
+  # which will set the hostname at first boot if needed.
 
 }

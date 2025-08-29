@@ -1,71 +1,15 @@
-# Dynamic hostname assignment based on motherboard serial
+/* DEPRECATED
+  This module's functionality has been moved to the installer script
+  `scripts/install-kiosk.sh`. The installer writes `assets/derive-hostname.sh`
+  into the repository prior to installation and copies it to
+  `/etc/nixos/assets/` on the installed system. The installer also computes
+  and exports `HOSTNAME` for `nixos-install` when possible.
+
+  The configuration import was removed from `configuration.nix` so this
+  file is intentionally inert. You can safely delete this file from the
+  repository if you prefer; it's kept here as a migration record.
+*/
+
 { config, lib, pkgs, ... }:
 
-let
-  # Script to derive hostname from motherboard serial
-  hostnameScript = pkgs.writeShellScript "derive-hostname" ''
-    #!/usr/bin/env bash
-    set -euo pipefail
-
-    # Try to get motherboard serial
-    serial=""
-    if [[ -r /sys/class/dmi/id/board_serial ]]; then
-      serial=$(cat /sys/class/dmi/id/board_serial | tr -d '[:space:]')
-    elif [[ -r /sys/class/dmi/id/product_serial ]]; then
-      serial=$(cat /sys/class/dmi/id/product_serial | tr -d '[:space:]')
-    fi
-
-    if [[ -z "$serial" ]]; then
-      echo "fband"  # Fallback hostname
-      exit 0
-    fi
-
-    # Check for JSON mapping file
-    map_file="/etc/nixos/assets/serial-hostname-map.json"
-    if [[ -f "$map_file" ]] && command -v ${pkgs.jq}/bin/jq >/dev/null 2>&1; then
-      mapped_hostname=$(${pkgs.jq}/bin/jq -r --arg s "$serial" '.[$s] // empty' "$map_file")
-      if [[ -n "$mapped_hostname" ]]; then
-        echo "$mapped_hostname"
-        exit 0
-      fi
-    fi
-
-    # Fallback: generate hostname from last 4 chars of serial
-    suffix="''${serial: -4}"
-    echo "wh-''${suffix}"
-  '';
-in
-{
-  options = {
-    services.dynamicHostname = {
-      enable = lib.mkEnableOption "dynamic hostname assignment based on motherboard serial";
-      mapFile = lib.mkOption {
-        type = lib.types.nullOr lib.types.path;
-        default = null;
-        description = "Path to JSON file mapping serial numbers to hostnames";
-      };
-    };
-  };
-
-  config = lib.mkIf config.services.dynamicHostname.enable {
-    # Copy the mapping file to the system if provided
-    environment.etc = lib.mkIf (config.services.dynamicHostname.mapFile != null) {
-      "serial-hostname-map.json".source = config.services.dynamicHostname.mapFile;
-    };
-
-    # Set hostname at boot using a systemd oneshot that runs the derived script.
-    # We do NOT set `networking.hostName` at evaluation time because the
-    # hostname can only be determined on the target machine (DMI info).
-    systemd.services.set-dynamic-hostname = {
-      description = "Set dynamic hostname based on motherboard serial";
-      wantedBy = [ "multi-user.target" ];
-      after = [ "network.target" ];
-      serviceConfig = {
-        Type = "oneshot";
-        # Run the generated script and pipe its output to hostnamectl.
-        ExecStart = ''${pkgs.bash}/bin/bash -c "${hostnameScript} | xargs -r -I{} ${pkgs.systemd}/bin/hostnamectl set-hostname {}"'';
-        RemainAfterExit = true;
-      };
-    };
-  };
-}
+{ }

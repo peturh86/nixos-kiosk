@@ -37,9 +37,10 @@
                       # Small bios_grub partition so GRUB can embed on GPT if
                       # the machine boots in BIOS mode. Size is minimal (1M).
                       bios = {
-                        size = "1M";
-                        type = "EF02"; # bios_grub
-                        content = { type = "raw"; };
+                          size = "1M";
+                          type = "EF02"; # bios_grub
+                          # No content block: this partition is intentionally left
+                          # unformatted (raw) so GRUB can use it for embedding.
                       };
                       ESP = {
                         size = "512M";

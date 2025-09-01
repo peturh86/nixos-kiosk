@@ -37,11 +37,11 @@
                     partitions = {
                       bios = { size = "1M"; type = "EF02"; };
                       ESP = {
-                        size = "512M"; type = "EF00"; partlabel = "disk-main-esp";
+                        size = "512M"; type = "EF00";
                         content = { type = "filesystem"; format = "vfat"; label = "disk-main-esp"; mountpoint = "/boot"; };
                       };
                       root = {
-                        size = "100%"; partlabel = "disk-main-root";
+                        size = "100%";
                         content = { type = "filesystem"; format = "ext4"; label = "disk-main-root"; mountpoint = "/"; };
                       };
                     };
